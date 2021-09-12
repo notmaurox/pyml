@@ -61,18 +61,22 @@ class DataTransformer(object):
 
     # 1.5 - Standardization
     # Apply z-score standardization to a column in a dataframe. If an optional test_df is provided, the mean and std dev
-    # from the first data frame is used to normalize the same column in test_df
+    # from the first data frame is used to normalize the same column in test_df. Turns feature into score that represents
+    # how mant standard deviations the value is from the mean
     @staticmethod
     def z_score_standardize(df: pd.DataFrame, col: str, test_df: pd.DataFrame=None) -> Tuple[pd.DataFrame, pd.DataFrame]:
         if col not in df.columns:
             raise ValueError(f'Column missing from dataframe: {col}')
         LOG.info(f"Normalizing data frame by z score standardization on col {col}")
-        df[col] = (df[col] - df[col].mean())/df[col].std(ddof=0)
-        if test_df:
+        col_mean = df[col].mean()
+        col_std_dev = df[col].std(ddof=0)
+        print(col_mean, col_std_dev)
+        df[col] = (df[col] - col_mean)/col_std_dev
+        if not test_df is None:
             if col not in test_df.columns:
                 raise ValueError(f'Column missing from test dataframe: {col}')
             LOG.info(f"Normalizing test set data frame by z score standardization on col {col}")
-            test_df[col] = (test_df[col] - df[col].mean())/df[col].std(ddof=0)
+            test_df[col] = (test_df[col] - col_mean)/col_std_dev
         return df, test_df
 
     # 1.6 - Cross validation

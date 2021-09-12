@@ -115,6 +115,35 @@ class TestDataTransformer(unittest.TestCase):
         # Just make sure this doesnt error out
         self.assertTrue(True)
 
+    def test_z_score_standardize_test_and_train(self):
+        # Make train df
+        train_cols = ["sample", "float_field"]
+        train_data = [
+            ["d1", 5], #0
+            ["d2", 5], #1
+            ["d3", 5], #2
+            ["d4", 5], #3
+            ["d5", 5], #4
+            ["d6", 4], #5
+            ["d7", 4], #6
+            ["d8", 4], #7
+            ["d9", 4], #8
+            ["d10", 4], #9
+        ]
+        train_df = pd.DataFrame(train_data, columns=train_cols)
+        # Make test df
+        test_cols = ["sample", "float_field"]
+        # mean = 4.5 std_dev = 0.5
+        test_data = [
+            ["d1", 9], #0 | (9 - -4.5)/0.5 = 9
+            ["d9", -9], #8 | (-9 - -4.5)/0.5 = -27
+        ]
+        test_df = pd.DataFrame(test_data, columns=test_cols)
+        train_df, test_df = DataTransformer.z_score_standardize(train_df, "float_field", test_df)
+        # Mean 
+        self.assertTrue(test_df.iloc[0]["float_field"] == 9)
+        self.assertTrue(test_df.iloc[1]["float_field"] == -27) 
+
     def test_define_k_folds_even_folds(self):
         cols = ["sample", "str_field"]
         data = [
