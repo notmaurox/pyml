@@ -133,7 +133,7 @@ class TestDataTransformer(unittest.TestCase):
         train_df = pd.DataFrame(train_data, columns=train_cols)
         # Make test df
         test_cols = ["sample", "float_field"]
-        # mean = 4.5 std_dev = 0.5
+        #  training set ->>> mean = 4.5 std_dev = 0.5
         test_data = [
             ["d1", 9], #0 | (9 - -4.5)/0.5 = 9
             ["d9", -9], #8 | (-9 - -4.5)/0.5 = -27
