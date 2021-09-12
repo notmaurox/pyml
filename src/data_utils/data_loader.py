@@ -142,8 +142,7 @@ class DataLoader(object):
         header = [
             "vendor", "model_name", "MYCT", "MMIN", "MMAX", "CACH", "CHMIN", "CHMAX", "PRP", "ERP"
         ]
-        # Model name is unique so it can be used as the index
-        df = pd.read_csv(data_file, names=header, index_col="model_name")
+        df = pd.read_csv(data_file, names=header)
         # Apply data transformations so that it's ready for ML application
         df = DataTransformer.handle_nomal_col(df, "vendor")
         return df

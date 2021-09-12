@@ -214,7 +214,7 @@ class TestDataTransformer(unittest.TestCase):
         self.assertEqual(fold_indicies[1], (slice_1+slice_3, slice_2)) #1 red, 1 grn, 1 blu
         self.assertEqual(fold_indicies[2], (slice_1+slice_2, slice_3)) # 1 grn, 1 blu
 
-    def test_produce_k_fold_cross_validation_sets(self):
+    def test_produce_k_fold_cross_validation_sets_weird_case(self):
         cols = ["sample", "str_field"]
         data = [
             ["d1", "red"], #0

@@ -12,7 +12,7 @@ class TestDataLoader(unittest.TestCase):
 
     def test_load_abalone_data(self):
         df = DataLoader.load_abalone_data()
-        self.assertEqual(len(df.columns), 9)
+        self.assertEqual(len(df.columns), 11)
 
     def test_load_breast_cancer_data(self):
         df = DataLoader.load_breast_cancer_data()
@@ -20,15 +20,15 @@ class TestDataLoader(unittest.TestCase):
 
     def test_load_car_data(self):
         df = DataLoader.load_car_data()
-        self.assertEqual(len(df.columns), 6)
+        self.assertEqual(len(df.columns), 14)
 
     def test_load_forestfires_data(self):
         df = DataLoader.load_forestfires_data()
-        self.assertEqual(len(df.columns), 13)
+        self.assertEqual(len(df.columns), 30)
 
     def test_load_house_votes_data(self):
         df = DataLoader.load_house_votes_data()
-        self.assertEqual(len(df.columns), 17)
+        self.assertEqual(len(df.columns), 50)
 
     def load_machine_data(self):
         df = DataLoader.load_machine_data()
