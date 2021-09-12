@@ -128,19 +128,3 @@ class DataTransformer(object):
             k_fold_test_train_sets.append( (train_set, test_set) )
         return k_fold_test_train_sets, hyperparam_indicies
 
-if __name__ == "__main__":
-        cols = ["sample", "str_field"]
-        data = [
-            ["d1", "red"],
-            ["d2", "red"],
-            ["d3", "red"],
-            ["d4", "red"],
-            ["d5", "grn"],
-            ["d6", "grn"],
-            ["d7", "grn"],
-            ["d8", "grn"],
-            ["d9", "blu"],
-            ["d10", "blu"],
-        ]
-        df = pd.DataFrame(data, columns=cols)
-        DataTransformer.define_k_folds(df, 2, "str_field")

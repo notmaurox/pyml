@@ -1,7 +1,12 @@
-import io
 import unittest
+import sys
+import os
+import pathlib
 
 import pandas as pd
+
+PATH_TO_SRC_DIR = os.path.join(pathlib.Path(__file__).parent.resolve(), "../", "../", "src/")
+sys.path.insert(0, PATH_TO_SRC_DIR)
 
 from data_utils.data_transformer import DataTransformer
 
@@ -20,11 +25,7 @@ class TestDataTransformer(unittest.TestCase):
 
     def test_impute_missing_vales_with_mean(self):
         cols = ["sample", "int_field"]
-        data = [
-            ["d1", 1],
-            ["d2", None],
-            ["d3", 3]
-        ]
+        data = [["d1", 1], ["d2", None], ["d3", 3]]
         df = pd.DataFrame(data, columns=cols)
         df = DataTransformer.impute_missing_vales_with_mean(df, "int_field")
         self.assertEqual(df["int_field"].to_list(), [1, 2, 3])
