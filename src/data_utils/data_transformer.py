@@ -54,16 +54,16 @@ class DataTransformer(object):
         if col not in df.columns:
             raise ValueError(f'Column missing from dataframe: {col}')
         if equal_freq:
-            df[col] = pd.qcut(df[col], q=num_buckets)
+            df[col] = pd.qcut(df[col], q=num_buckets, duplicates='drop')
         else:
-            df[col] = pd.cut(df[col], q=num_buckets)
+            df[col] = pd.cut(df[col], bins=num_buckets)
         return df
 
     # 1.5 - Standardization
     # Apply z-score standardization to a column in a dataframe. If an optional test_df is provided, the mean and std dev
     # from the first data frame is used to normalize the same column in test_df
     @staticmethod
-    def z_score_standardize(df: pd.DataFrame, col: str, test_df: pd.DataFrame=None) -> pd.DataFrame:
+    def z_score_standardize(df: pd.DataFrame, col: str, test_df: pd.DataFrame=None) -> Tuple[pd.DataFrame, pd.DataFrame]:
         if col not in df.columns:
             raise ValueError(f'Column missing from dataframe: {col}')
         LOG.info(f"Normalizing data frame by z score standardization on col {col}")
@@ -73,6 +73,7 @@ class DataTransformer(object):
                 raise ValueError(f'Column missing from test dataframe: {col}')
             LOG.info(f"Normalizing test set data frame by z score standardization on col {col}")
             test_df[col] = (test_df[col] - df[col].mean())/df[col].std(ddof=0)
+        return df, test_df
 
     # 1.6 - Cross validation
     # train set (k-1/k), test set(1/k), 
@@ -127,4 +128,12 @@ class DataTransformer(object):
             test_set = k_fold_slices[test_fold_index]
             k_fold_test_train_sets.append( (train_set, test_set) )
         return k_fold_test_train_sets, hyperparam_indicies
+
+    # Apply log transform to column of dataframe
+    @staticmethod
+    def log_transform_column(df: pd.DataFrame, col: str) -> pd.DataFrame:
+        if col not in df.columns:
+            raise ValueError(f'Column missing from dataframe: {col}')
+        df[col] = np.log10(df[col])
+        return df
 

@@ -4,6 +4,7 @@ import os
 import pathlib
 
 import pandas as pd
+import numpy as np
 
 PATH_TO_SRC_DIR = os.path.join(pathlib.Path(__file__).parent.resolve(), "../", "../", "src/")
 sys.path.insert(0, PATH_TO_SRC_DIR)
@@ -57,6 +58,62 @@ class TestDataTransformer(unittest.TestCase):
         df = pd.DataFrame(data, columns=cols)
         df = DataTransformer.handle_nomal_col(df, "str_field")
         self.assertEqual(len(df.columns), 4)
+
+    def test_discretize_col_equal_width(self):
+        cols = ["sample", "float_field"]
+        data = [
+            ["d1", 1.5], #0
+            ["d2", 1.3], #1
+            ["d3", 1.2], #2
+            ["d4", 1.9], #3
+            ["d5", 2.0], #4
+            ["d6", 10], #5
+            ["d7", 10.5], #6
+            ["d8", 10.2], #7
+            ["d9", 10.3], #8
+            ["d10", 10.2], #9
+        ]
+        df = pd.DataFrame(data, columns=cols)
+        df = DataTransformer.discretize_col(df, "float_field", 2, equal_width=True)
+        self.assertEqual(2, len(pd.unique(df["float_field"])))
+
+    def test_discretize_col_equal_freq(self):
+        cols = ["sample", "float_field"]
+        data = [
+            ["d1", 1.5], #0
+            ["d2", 1.3], #1
+            ["d3", 1.2], #2
+            ["d4", 9], #3
+            ["d5", 9], #4
+            ["d6", 10], #5
+            ["d7", 10.5], #6
+            ["d8", 10.2], #7
+            ["d9", 10.3], #8
+            ["d10", 10.2], #9
+        ]
+        df = pd.DataFrame(data, columns=cols)
+        df = DataTransformer.discretize_col(df, "float_field", 2, equal_width=False, equal_freq=True)
+        self.assertEqual(2, len(pd.unique(df["float_field"])))
+        self.assertEqual(df["float_field"].iloc[0], pd.Interval(1.199, 9.5, closed="right"))
+
+    def test_z_score_standardize(self):
+        cols = ["sample", "float_field"]
+        data = [
+            ["d1", 1.5], #0
+            ["d2", 1.3], #1
+            ["d3", 1.2], #2
+            ["d4", 9], #3
+            ["d5", 9], #4
+            ["d6", 10], #5
+            ["d7", 10.5], #6
+            ["d8", 10.2], #7
+            ["d9", 10.3], #8
+            ["d10", 10.2], #9
+        ]
+        df = pd.DataFrame(data, columns=cols)
+        df = DataTransformer.z_score_standardize(df, "float_field")
+        # Just make sure this doesnt error out
+        self.assertTrue(True)
 
     def test_define_k_folds_even_folds(self):
         cols = ["sample", "str_field"]
