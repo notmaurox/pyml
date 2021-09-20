@@ -7,6 +7,8 @@ from typing import Dict
 
 class MetricsEvaluator(object):
 
+    # Given a set of labels/classes and the predicted labels/classes, return a value that represents the proportion
+    # that were predicted correctly
     @staticmethod
     def calculate_classification_score(labels: pd.Series, predictions: pd.Series) -> float:
         if len(labels) != len(predictions):
@@ -17,6 +19,7 @@ class MetricsEvaluator(object):
         correct_predictions = len(df[df["label"] == df["prediction"]])
         return float(correct_predictions / len(df))
 
+    # Given a set of labels/classes and the predicted labels/classes, calculate the mean squared error
     @staticmethod
     def calculate_mean_squared_error(labels: pd.Series, predictions: pd.Series) -> float:
         if len(labels) != len(predictions):
@@ -27,6 +30,7 @@ class MetricsEvaluator(object):
         df["diff"] = df["label"] - df["prediction"]
         return (df["diff"].values ** 2).mean()
 
+    # Given a set of labels/classes and the predicted labels/classes, calculate precision
     @staticmethod
     def calculate_precision(labels: pd.Series, predictions: pd.Series) -> Dict:
         return_dict = {}
@@ -49,6 +53,7 @@ class MetricsEvaluator(object):
                 return_dict[class_name] = None
         return return_dict
 
+    # Given a set of labels/classes and the predicted labels/classes, calculate recall
     @staticmethod
     def calculate_recall(labels: pd.Series, predictions: pd.Series) -> Dict:
         return_dict = {}
@@ -71,6 +76,7 @@ class MetricsEvaluator(object):
                 return_dict[class_name] = None
         return return_dict
 
+    # Given a set of labels/classes and the predicted labels/classes, calculate F1 score
     @staticmethod
     def calculate_f1_score(labels: pd.Series, predictions: pd.Series) -> Dict:
         return_dict = {}
@@ -86,6 +92,7 @@ class MetricsEvaluator(object):
                 return_dict[class_name] = None
         return return_dict
 
+    # Given a set of labels/classes and the predicted labels/classes, calculate the mean absolute error
     @staticmethod
     def calculate_mean_abs_error(labels: pd.Series, predictions: pd.Series) -> float:
         if len(labels) != len(predictions):
@@ -96,6 +103,7 @@ class MetricsEvaluator(object):
         df["diff"] = df["label"] - df["prediction"]
         return (df["diff"].abs().values).mean()
 
+    # Given a set of labels/classes and the predicted labels/classes, calculate the r squared coeffiicient
     @staticmethod
     def calculate_r_sqrd_coefficient(labels: pd.Series, predictions: pd.Series) -> float:
         # TODO
@@ -113,6 +121,7 @@ class MetricsEvaluator(object):
         # return 1 - float(df["ssres"].sum() / df["sstot"].sum())
         return 0.0
 
+    # Given a set of labels/classes and the predicted labels/classes, calculate the peasrons correlation score
     @staticmethod
     def calculate_pearsons_correlation(labels: pd.Series, predictions: pd.Series) -> float:
         # TODO

@@ -19,6 +19,8 @@ LOG.setLevel(logging.DEBUG)
 # Load data from files on disk into pandas data frames and clean them for downstream analysis
 class DataLoader(object):
 
+    # Load abalone dataset from files as a dataframe and apply some data transformation
+    # https://archive.ics.uci.edu/ml/datasets/Abalone
     @staticmethod
     def load_abalone_data() -> pd.DataFrame:
         data_file = os.path.join(PATH_TO_DATA_DIR, "abalone.data")
@@ -34,6 +36,8 @@ class DataLoader(object):
             df = DataTransformer.impute_missing_vales_with_mean(df, column_name)
         return df
 
+    # Load breast cancer dataset from files as a dataframe and apply some data transformation
+    # https://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+%28Original%29
     @staticmethod
     def load_breast_cancer_data() -> pd.DataFrame:
         data_file = os.path.join(PATH_TO_DATA_DIR, "breast-cancer-wisconsin.data")
@@ -49,6 +53,8 @@ class DataLoader(object):
         # Apply data transformations so that it's ready for ML application
         return df
 
+    # Load car evaluation dataset from files as a dataframe and apply some data transformation
+    # https://archive.ics.uci.edu/ml/datasets/Car+Evaluation
     @staticmethod
     def load_car_data() -> pd.DataFrame:
         data_file = os.path.join(PATH_TO_DATA_DIR, "car.data")
@@ -103,6 +109,9 @@ class DataLoader(object):
             df = DataTransformer.impute_missing_vales_with_mean(df, column_name)
         return df
 
+    # Load forest fire dataset from files as a dataframe and apply some data transformation
+    # https://archive.ics.uci.edu/ml/datasets/Forest+Fires
+    # Note from assignment - The output area is very skewed toward 0.0. The authors recommend a log transform.
     @staticmethod
     def load_forestfires_data() -> pd.DataFrame:
         data_file = os.path.join(PATH_TO_DATA_DIR, "forestfires.data")
@@ -120,6 +129,10 @@ class DataLoader(object):
         # df = DataTransformer.log_transform_column(df, "area")
         return df
 
+    # Load house congressional vote dataset from files as a dataframe and apply some data transformation
+    # https://archive.ics.uci.edu/ml/datasets/Congressional+Voting+Records
+    # Note from assignment - Be careful with this data set since “?” does not indicate a missing attribute value.
+    # It actually means “abstain.”
     @staticmethod
     def load_house_votes_data() -> pd.DataFrame:
         data_file = os.path.join(PATH_TO_DATA_DIR, "house-votes-84.data")
@@ -136,6 +149,12 @@ class DataLoader(object):
             df = DataTransformer.handle_nomal_col(df, column_name)
         return df
 
+    # Load computer hardware dataset from files as a dataframe and apply some data transformation
+    # https://archive.ics.uci.edu/ml/datasets/Computer+Hardware
+    # Note from assignment - The estimated relative performance ERP values were estimated by the authors using a linear
+    # regression method. This cannot be used as a feature. You should remove it from the feature
+    # set, but save it elsewhere. In a later lab, you will have a chance to see how well you can replicate
+    # the results with these two models ERP and PRP.
     @staticmethod
     def load_machine_data() -> pd.DataFrame:
         data_file = os.path.join(PATH_TO_DATA_DIR, "machine.data")

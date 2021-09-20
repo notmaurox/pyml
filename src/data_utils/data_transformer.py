@@ -10,13 +10,14 @@ LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.DEBUG)
 
 class DataTransformer(object):
-
+    # Returns a list of columns in the dataframe that are missing values
     @staticmethod
     def identify_cols_with_missing_data(df: pd.DataFrame) -> List[str]:
         cols_with_na = df.columns[df.isna().any()].tolist()
         return cols_with_na
 
     # 1.2
+    # Takes a column name and replaces any missing values with the mean of that column
     @staticmethod
     def impute_missing_vales_with_mean(df: pd.DataFrame, col: str) -> pd.DataFrame:
         if col not in df.columns:
@@ -108,6 +109,12 @@ class DataTransformer(object):
                 fold_indicies[slice_index] = fold_indicies[slice_index] + slice_item_indicies
         return fold_indicies
 
+    # Returns two sets of indicies. The first is a list of k items where each item is a tuple. The first item in the
+    # tuple is a list of (k-1/k)*n dataframe indicies to be used for training. The second item in the tuple is a
+    # list of (1/k)*n indicues to be used for testing. There are k of these tuples to be used for k fold cross
+    # validation. If passing the make_hyperparam_set flag to True, hyperparam_set_proportion proportion of the data 
+    # will be set aside prior to defining the k fold cross validation sets of indicies for hyperparameter tuning.
+    # This list of inicies will be returned as the second return value of the function.
     @staticmethod
     def produce_k_fold_cross_validation_sets(
         df: pd.DataFrame, k: int, class_col: str, make_hyperparam_set:bool=False, hyperparam_set_proportion:float=0.20
@@ -137,7 +144,7 @@ class DataTransformer(object):
             k_fold_test_train_sets.append( (train_set, test_set) )
         return k_fold_test_train_sets, hyperparam_indicies
 
-    # Apply log transform to column of dataframe
+    # Apply log base 10 transform to column of dataframe on a column
     @staticmethod
     def log_transform_column(df: pd.DataFrame, col: str) -> pd.DataFrame:
         if col not in df.columns:
