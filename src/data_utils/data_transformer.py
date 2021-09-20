@@ -55,8 +55,12 @@ class DataTransformer(object):
             raise ValueError(f'Column missing from dataframe: {col}')
         if equal_freq:
             df[col] = pd.qcut(df[col], q=num_buckets, duplicates='drop')
+            if len(df[col].value_counts()) != num_buckets:
+                raise ValueError(f"qcut unable to split column {col} into {str(num_buckets)} equal frequency buckets")
         else:
             df[col] = pd.cut(df[col], bins=num_buckets)
+            if len(df[col].value_counts()) != num_buckets:
+                raise ValueError(f"cut unable to split column {col} into {str(num_buckets)} equal frequency buckets")
         return df
 
     # 1.5 - Standardization

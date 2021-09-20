@@ -10,6 +10,7 @@ PATH_TO_SRC_DIR = os.path.join(pathlib.Path(__file__).parent.resolve(), "../", "
 sys.path.insert(0, PATH_TO_SRC_DIR)
 
 from data_utils.data_transformer import DataTransformer
+from data_utils.data_loader import DataLoader
 
 class TestDataTransformer(unittest.TestCase):
 
@@ -24,6 +25,7 @@ class TestDataTransformer(unittest.TestCase):
         na_cols = DataTransformer.identify_cols_with_missing_data(df)
         self.assertEqual(na_cols, ["str_field"])
 
+    # Imputation of missing values
     def test_impute_missing_vales_with_mean(self):
         cols = ["sample", "int_field"]
         data = [["d1", 1], ["d2", None], ["d3", 3]]
@@ -48,6 +50,7 @@ class TestDataTransformer(unittest.TestCase):
         )
         self.assertEqual(df["str_field"].to_list(), [1, 2, 3])
 
+    #mapping of non binary to categorical variable by one-hot encoding
     def test_handle_nomal_col(self):
         cols = ["sample", "str_field"]
         data = [
@@ -59,6 +62,7 @@ class TestDataTransformer(unittest.TestCase):
         df = DataTransformer.handle_nomal_col(df, "str_field")
         self.assertEqual(len(df.columns), 4)
 
+    #discritization by equal width bins
     def test_discretize_col_equal_width(self):
         cols = ["sample", "float_field"]
         data = [
@@ -77,6 +81,7 @@ class TestDataTransformer(unittest.TestCase):
         df = DataTransformer.discretize_col(df, "float_field", 2, equal_width=True)
         self.assertEqual(2, len(pd.unique(df["float_field"])))
 
+    # discretization by equal freq bins
     def test_discretize_col_equal_freq(self):
         cols = ["sample", "float_field"]
         data = [
@@ -115,6 +120,7 @@ class TestDataTransformer(unittest.TestCase):
         # Just make sure this doesnt error out
         self.assertTrue(True)
 
+    #standardize training set and apply to test set. 
     def test_z_score_standardize_test_and_train(self):
         # Make train df
         train_cols = ["sample", "float_field"]
@@ -272,4 +278,24 @@ class TestDataTransformer(unittest.TestCase):
         self.assertEqual(fold_indicies[0], (slice_2+slice_3, slice_1)) #2 red, 2 grn, 1 blu
         self.assertEqual(fold_indicies[1], (slice_1+slice_3, slice_2)) #1 red, 1 grn, 1 blu
         self.assertEqual(fold_indicies[2], (slice_1+slice_2, slice_3)) # 1 grn, 1 blu
+
+    def test_discretize_col_equal_freq_on_forest(self):
+        # Test equal width
+        df = DataLoader.load_forestfires_data()
+        df = DataTransformer.discretize_col(df, "area", 5, equal_width=True, equal_freq=False)
+        unique_areas = df["area"].value_counts()
+        print(unique_areas)
+        self.assertEqual(5, len(unique_areas))
+        # Test equal freq
+        df = DataLoader.load_abalone_data()
+        df = DataTransformer.discretize_col(df, "diameter", 5, equal_width=False, equal_freq=True)
+        unique_areas = df["diameter"].value_counts()
+        print(unique_areas)
+        self.assertEqual(5, len(unique_areas))
+        # Test equal freq broken
+        df = DataLoader.load_forestfires_data()
+        try:
+            df = DataTransformer.discretize_col(df, "area", 5, equal_width=False, equal_freq=True)
+        except ValueError:
+            pass
         
