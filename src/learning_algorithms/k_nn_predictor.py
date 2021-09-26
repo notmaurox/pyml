@@ -15,20 +15,25 @@ from data_utils.metrics_evaluator import MetricsEvaluator
 
 # Logging stuff
 LOG = logging.getLogger(__name__)
-LOG.setLevel(logging.DEBUG)
-# handler = logging.StreamHandler(sys.stdout)
-# handler.setLevel(logging.DEBUG)
-# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-# handler.setFormatter(formatter)
-# LOG.addHandler(handler)
+LOG.setLevel(logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+LOG.addHandler(handler)
 
 PRED_COL_NAME = "prediction"
 
 # TODO logging
+# Common strategy for learning algorithms is to add a column called "prediction" to the test set dataframe with the
+# predicted label.
 class KNearestNeighborPredictor(object):
 
-    # TODO comment
+    # Class constructor. Takes K to define the number of neighbots to consider and a boolean. If False, classifiction
+    # is done in learning, if True, regression is done in learning. Allows for configurable sigma and allowed error
+    # for classification tasks. 
     def __init__(self, k:int, do_regression:bool, sigma:float=2.5, allowed_error:float=None):
+        LOG.info(f"Initializing K-nn predictor with k={k} and regression={do_regression}")
         self.k = k
         self.bandwidth_param = 0.00
         self.allowed_error = allowed_error
@@ -37,8 +42,13 @@ class KNearestNeighborPredictor(object):
         self.do_regression = do_regression
         self.sigma = sigma
 
+    # Helper method that takes an index of a row in the test_set dataframe, the name of the class column, and the
+    # train set. Based on configurations of the calling object, the k nearest neigbors are identified using 
+    # euclidean distance or gaussian kernel. A list is returned containing a single tuple for each neighbor.
+    # The first item in the tuple is the distance/gaussian kernel score and the second is the label.
     def _find_datapoint_k_neighbors(
         self, test_row_index:int, class_col: str, train_set: pd.DataFrame, test_set: pd.DataFrame):
+        LOG.debug(f"Finding nearest neighbors for test row index {test_row_index}")
         neighbors = []
         for train_row_index in train_set.index:
             # Calculate Frobenius norm aka euclidean norm between two vectors
@@ -62,9 +72,12 @@ class KNearestNeighborPredictor(object):
                         break
         return neighbors
 
-    # neighbors is a list of tuples where each tuple is a neighbor. The first item in each tuple is the distance to the
-    # query point and the second item in each tuple is the neighbor label. 
+    # neighbors is a list of tuples where each tuple is a neighbor and is returned by  _find_datapoint_k_neighbors.
+    # The first item in each tuple is the distance to the query point and the second item in each tuple is the neighbor
+    # label. Based on configuration of the calling object, this will either return the majority label when doing 
+    # classification or the gaussian regression value when doing regression.  
     def _classify_point_from_neighbors(self, neighbors):
+        LOG.debug("Classifying point from neigbhors")
         if not self.do_regression:
             return mode([neighbor[1] for neighbor in neighbors])
         else:
@@ -74,9 +87,12 @@ class KNearestNeighborPredictor(object):
             )
             return regression_prediction
 
-    # TODO comment
+    # Takes a string designating the class column, a datafraim of training points and a dataframe of test points.
+    # test points are iterated and k nearest neighbor classification is done using the training points.
+    # Based on configuration of calling object, classification or regression is done. A new column is added to the 
+    # test_set df called "prediction" that has the predicted label. 
     def k_nearest_neighbor(self, class_col: str, train_set: pd.DataFrame, test_set: pd.DataFrame) -> pd.DataFrame:
-        LOG.info(f"Running K nearest neighbor prediction by majority label on DataFrame column {class_col}")
+        LOG.debug(f"Running K nearest neighbor prediction by majority label on DataFrame column {class_col}")
         if class_col not in train_set.columns:
             raise ValueError(f'Column missing from dataframe: {class_col}')
         # Run prediction
@@ -88,12 +104,14 @@ class KNearestNeighborPredictor(object):
         test_set[PRED_COL_NAME] = pd.Series(predicted_classes, index=test_set.index)
         return test_set
 
-    # TODO comment
+    # This method generates a modified training set for edited k nn by classifying each point using all other points in
+    # the dataframe via k-nn. It returns a the training set with either misclassified
+    # or correctly classified rows dropped from the data frame depending on value of remove_correct param. 
     # Iterate through the training set and classify using the other points in the training set.
     # If rmv_correct==False, then examples that are misclasified are removed from the set. 
     # If rmv_correct==True, then examples that are correctly classified are removed from the set. 
     def make_edited_k_nn_train_set(
-        self, class_col: str, train_set: pd.DataFrame, remove_correct: bool=False) -> List[int]:
+        self, class_col: str, train_set: pd.DataFrame, remove_correct: bool=False) -> pd.DataFrame:
         LOG.info(f"Generating indicies for edited k nearest neighbot train set on DataFrame column {class_col}")
         if class_col not in train_set.columns:
             raise ValueError(f'Column missing from dataframe: {class_col}')
@@ -122,18 +140,32 @@ class KNearestNeighborPredictor(object):
                 train_set = train_set.drop(train_set_index)
         # At the end of for loop, edited_train_set_indicies will contain list of incorrectly classified datapoints
         return train_set
-        
-    #TODO comment
-    # Repeat untill performance on validation set no longer improves or no further points are removed.
+
+    # Helper function used to determine if score has improved in edited K nn
+    def _has_score_improved(self, new_score: float, old_score: float) -> bool:
+        # If we are doing regression, smaller scores are better
+        if self.do_regression:
+            return new_score < old_score
+        else: # If we are doing classification, larger scores are better
+            return new_score > old_score
+
+    # Repeats a loop until the size of the edited training set does not change or the classification score does not repeat.
+    # First generates an edited training set with make_edited_k_nn_train_set and then uses that for classification.
+    # Then if doing regression, calculates classification accruacy, if doing regression calculates MSE.
     def edited_k_nearest_neighbor(
         self, class_col: str, train_set: pd.DataFrame, test_set: pd.DataFrame, remove_correct: bool=False) -> pd.DataFrame:
-        LOG.info(f"Running K nearest neighbor prediction by majority label on DataFrame column {class_col}")
+        LOG.info(f"Running edited K nearest neighbor prediction by majority label on DataFrame column {class_col}")
         if class_col not in train_set.columns:
             raise ValueError(f'Column missing from dataframe: {class_col}')
         # Run prediction
         edited_training_set = train_set.copy()
         self.training_set_sizes = [len(edited_training_set)]
-        self.classification_scores = [0.00]
+        # When doing regression, smaller scores better
+        if self.do_regression:
+            self.classification_scores = [float('inf')]
+        # When doing classification, larger scores better
+        else:
+            self.classification_scores = [0.00]
         best_classification = None
         while True:
             edited_training_set = self.make_edited_k_nn_train_set(
@@ -142,23 +174,33 @@ class KNearestNeighborPredictor(object):
             predicted_test_set = self.k_nearest_neighbor(
                 class_col, edited_training_set, test_set
             )
-            classification_score = MetricsEvaluator.calculate_classification_score(
-                predicted_test_set[class_col], predicted_test_set[PRED_COL_NAME]
-            )
+            # If classification, use classification accruacy.
+            if not self.do_regression:
+                classification_score = MetricsEvaluator.calculate_classification_score(
+                    predicted_test_set[class_col], predicted_test_set[PRED_COL_NAME]
+                )
+            else: # If doing regression, use MSE...
+                classification_score = MetricsEvaluator.calculate_mean_squared_error(
+                    predicted_test_set[class_col], predicted_test_set[PRED_COL_NAME]
+                )
+            print(len(edited_training_set), classification_score)
             # when an iteration fails to decrease training set size or improve classification score,
-            if (len(edited_training_set) >= self.training_set_sizes[-1]
-                and classification_score < self.classification_scores[-1]):
-                return best_classification
-            else:
+            if (self._has_score_improved(classification_score, self.classification_scores[-1])
+                or len(edited_training_set) < self.training_set_sizes[-1]):
                 self.training_set_sizes.append(len(edited_training_set))
                 self.classification_scores.append(classification_score)
                 best_classification = predicted_test_set.copy()
+            else:
+                return best_classification
 
-    # TODO comment
-    # continue to iterate through training set in random order untill a full loop through the training set does not
-    # add any more points to the set of edited train set indicies
+    # Given a training set and a class column, initialize an edited set and iterate through the training set in random
+    # order. For each data point in the training set, find its closest neighbor in the edited set. If this closest
+    # neigbhor does not match the class label, add the current data point to the edited set.
+    # Continue to iterate through training set in random order untill a full loop through the training set does not
+    # add any more points to the set of edited train set indicies. Return a list of dataframe indicies as the edited
+    # set
     def make_condensed_k_nn_train_set(self, class_col: str, train_set: pd.DataFrame) -> List[int]:
-        LOG.info(f"Generating indicies for edited k nearest neighbot train set on DataFrame column {class_col}")
+        LOG.info(f"Generating indicies for condensed k nearest neighbot train set on DataFrame column {class_col}")
         if class_col not in train_set.columns:
             raise ValueError(f'Column missing from dataframe: {class_col}')
         # Build train set...
@@ -191,9 +233,10 @@ class KNearestNeighborPredictor(object):
             if len(edited_train_set_indicies) != edited_train_set_size_pre_train_set_iteration:
                 return edited_train_set_indicies
 
-    #TODO comment
+    # Given a class column, a training set dataframe, and a test set dataframe, perform condensed nearest neighbor
+    # by first creating an edited train set and then using that edited set of nearest neighbor. 
     def condensed_k_nearest_neighbor(self, class_col: str, train_set: pd.DataFrame, test_set: pd.DataFrame) -> pd.DataFrame:
-        LOG.info(f"Running K nearest neighbor prediction by majority label on DataFrame column {class_col}")
+        LOG.info(f"Running condensed K nearest neighbor prediction by majority label on DataFrame column {class_col}")
         if class_col not in train_set.columns:
             raise ValueError(f'Column missing from dataframe: {class_col}')
         # Make condensed training set
