@@ -28,13 +28,14 @@ PRED_COL_NAME = "prediction"
 class KNearestNeighborPredictor(object):
 
     # TODO comment
-    def __init__(self, k:int, do_regression:bool, allowed_error:float=None):
+    def __init__(self, k:int, do_regression:bool, sigma:float=2.5, allowed_error:float=None):
         self.k = k
         self.bandwidth_param = 0.00
         self.allowed_error = allowed_error
         self.training_set_sizes = []
         self.classification_scores = []
         self.do_regression = do_regression
+        self.sigma = sigma
 
     # TODO comment
     def k_nearest_neighbor(self, class_col: str, train_set: pd.DataFrame, test_set: pd.DataFrame) -> pd.DataFrame:
@@ -60,7 +61,14 @@ class KNearestNeighborPredictor(object):
                             neighbors[neighbor_index][0] = euclidean_dist
                             neighbors[neighbor_index][1] = train_set.loc[train_row_index][class_col]
                             break
-            predicted_classes.append(mode([neighbor[1] for neighbor in neighbors]))
+            if not self.do_regression:
+                predicted_classes.append(mode([neighbor[1] for neighbor in neighbors]))
+            else:
+                regression_prediction = (
+                    sum([np.exp(-0.5 * np.square(neighbor[0]) / np.square(self.sigma))*neighbor[1] for neighbor in neighbors])
+                    / sum([np.exp(-0.5 * np.square(neighbor[0]) / np.square(self.sigma)) for neighbor in neighbors])
+                )
+                predicted_classes.append(regression_prediction)
         # Need to use indicies of test set when adding prediction series to test set df
         test_set[PRED_COL_NAME] = pd.Series(predicted_classes, index=test_set.index)
         return test_set

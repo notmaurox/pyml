@@ -12,7 +12,7 @@ from learning_algorithms.k_nn_predictor import KNearestNeighborPredictor
 
 class KNearestNeighborsPredictor(unittest.TestCase):
 
-    def test_k_nearest_neighbor(self):
+    def test_k_nearest_neighbor_classification(self):
         knnp = KNearestNeighborPredictor(
             4, False
         )
@@ -39,6 +39,34 @@ class KNearestNeighborsPredictor(unittest.TestCase):
         pred_df = knnp.k_nearest_neighbor("class", train_df, test_df)
         print(pred_df)
         self.assertTrue(pd.Series(["c1", "c2", "c3"]).equals(pred_df["prediction"]))
+
+    def test_k_nearest_neighbor_classification_regression(self):
+        knnp = KNearestNeighborPredictor(
+            2, True
+        )
+        # train set
+        cols = ["class", "int_field", "int_field"]
+        data = [
+            [1, 1, 1], #0
+            [2, 2, 2], #1
+            [3, 3, 3], #2
+            [1, 1, 1], #0
+            [2, 2, 2], #1
+            [3, 3, 3], #2
+        ]
+        train_df = pd.DataFrame(data, columns=cols)
+        # test set
+        cols = ["class", "int_field", "int_field"]
+        data = [
+            [1, 1, 1], #0
+            [2, 2, 2], #1
+            [3, 3, 3], #2
+        ]
+        test_df = pd.DataFrame(data, columns=cols)
+        # run pred
+        pred_df = knnp.k_nearest_neighbor("class", train_df, test_df)
+        print(pred_df)
+        self.assertTrue(pd.Series([1.0, 2.0, 3.0]).equals(pred_df["prediction"]))
 
     def test_make_edited_k_nn_train_set_rmv_misclassified(self):
         knnp = KNearestNeighborPredictor(
