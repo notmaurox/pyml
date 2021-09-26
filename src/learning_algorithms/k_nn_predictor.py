@@ -37,6 +37,38 @@ class KNearestNeighborPredictor(object):
         self.do_regression = do_regression
         self.sigma = sigma
 
+    def _find_datapoint_k_neighbors(
+        self, test_row_index:int, class_col: str, train_set: pd.DataFrame, test_set: pd.DataFrame):
+        neighbors = []
+        for train_row_index in train_set.index:
+            # Calculate Frobenius norm aka euclidean norm between two vectors
+            euclidean_dist = np.linalg.norm(
+                test_set.loc[test_row_index].drop([class_col])
+                - train_set.loc[train_row_index].drop([class_col])
+            )
+            # Lazy method for tracking distance of K NN and associated label. Could be improved with min heap
+            if len(neighbors) < self.k: 
+                neighbors.append([euclidean_dist, train_set.loc[train_row_index][class_col]])
+            else:
+                for neighbor_index in range(len(neighbors)):
+                    if neighbors[neighbor_index][0] > euclidean_dist:
+                        neighbors[neighbor_index][0] = euclidean_dist
+                        neighbors[neighbor_index][1] = train_set.loc[train_row_index][class_col]
+                        break
+        return neighbors
+
+    # neighbors is a list of tuples where each tuple is a neighbor. The first item in each tuple is the distance to the
+    # query point and the second item in each tuple is the neighbor label. 
+    def _classify_point_from_neighbors(self, neighbors):
+        if not self.do_regression:
+            return mode([neighbor[1] for neighbor in neighbors])
+        else:
+            regression_prediction = (
+                sum([np.exp(-0.5 * np.square(neighbor[0]) / np.square(self.sigma))*neighbor[1] for neighbor in neighbors])
+                / sum([np.exp(-0.5 * np.square(neighbor[0]) / np.square(self.sigma)) for neighbor in neighbors])
+            )
+            return regression_prediction
+
     # TODO comment
     def k_nearest_neighbor(self, class_col: str, train_set: pd.DataFrame, test_set: pd.DataFrame) -> pd.DataFrame:
         LOG.info(f"Running K nearest neighbor prediction by majority label on DataFrame column {class_col}")
@@ -45,30 +77,8 @@ class KNearestNeighborPredictor(object):
         # Run prediction
         predicted_classes = []
         for test_row_index in test_set.index:
-            neighbors = []
-            for train_row_index in train_set.index:
-                # Calculate Frobenius norm aka euclidean norm between two vectors
-                euclidean_dist = np.linalg.norm(
-                    test_set.loc[test_row_index].drop([class_col])
-                    - train_set.loc[train_row_index].drop([class_col])
-                )
-                # Lazy method for tracking distance of K NN and associated label. Could be improved with min heap
-                if len(neighbors) < self.k: 
-                    neighbors.append([euclidean_dist, train_set.loc[train_row_index][class_col]])
-                else:
-                    for neighbor_index in range(len(neighbors)):
-                        if neighbors[neighbor_index][0] > euclidean_dist:
-                            neighbors[neighbor_index][0] = euclidean_dist
-                            neighbors[neighbor_index][1] = train_set.loc[train_row_index][class_col]
-                            break
-            if not self.do_regression:
-                predicted_classes.append(mode([neighbor[1] for neighbor in neighbors]))
-            else:
-                regression_prediction = (
-                    sum([np.exp(-0.5 * np.square(neighbor[0]) / np.square(self.sigma))*neighbor[1] for neighbor in neighbors])
-                    / sum([np.exp(-0.5 * np.square(neighbor[0]) / np.square(self.sigma)) for neighbor in neighbors])
-                )
-                predicted_classes.append(regression_prediction)
+            neighbors = self._find_datapoint_k_neighbors(test_row_index, class_col, train_set, test_set)
+            predicted_classes.append(self._classify_point_from_neighbors(neighbors))
         # Need to use indicies of test set when adding prediction series to test set df
         test_set[PRED_COL_NAME] = pd.Series(predicted_classes, index=test_set.index)
         return test_set

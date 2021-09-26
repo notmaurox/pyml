@@ -367,6 +367,4 @@ class KNearestNeighborsPredictor(unittest.TestCase):
             test_df
         )
         print(pred_df)
-        print(knnp.training_set_sizes)
-        print(knnp.classification_scores)
         self.assertTrue(pd.Series([1.0, 2.0, 3.0]).equals(pred_df["prediction"]))

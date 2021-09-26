@@ -62,13 +62,14 @@ if __name__ == "__main__":
     folds, _ = DataTransformer.produce_k_fold_cross_validation_sets(df, num_folds, class_col)
     prediction_scores = []
     mses = []
-    print(len(df[class_col].unique()))
     for train_indicies, test_indicies in folds:
         LOG.info(f"Training on {len(train_indicies)} entitites and testing on {len(test_indicies)} entitites")
-        train_df = df.iloc[train_indicies].copy()
+        train_df = df.loc[train_indicies].copy()
         LOG.info(f"Train set has class representation..\n{train_df[class_col].value_counts()}")
-        test_df = df.iloc[test_indicies].copy()
+        test_df = df.loc[test_indicies].copy()
         LOG.info(f"Test set has class representation..\n{test_df[class_col].value_counts()}")
+
+        
         MajorityPredictor.predict_by_majority(class_col, train_df, test_df)
         c_score = MetricsEvaluator.calculate_classification_score(test_df[class_col], test_df["predicted_class"])
         prediction_scores.append(c_score)
