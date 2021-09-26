@@ -42,17 +42,22 @@ class KNearestNeighborPredictor(object):
         neighbors = []
         for train_row_index in train_set.index:
             # Calculate Frobenius norm aka euclidean norm between two vectors
-            euclidean_dist = np.linalg.norm(
+            dist = abs(np.linalg.norm(
                 test_set.loc[test_row_index].drop([class_col])
                 - train_set.loc[train_row_index].drop([class_col])
-            )
+            ))
+            if self.do_regression:
+                dist = np.exp(dist / (-2 * self.sigma))
             # Lazy method for tracking distance of K NN and associated label. Could be improved with min heap
             if len(neighbors) < self.k: 
-                neighbors.append([euclidean_dist, train_set.loc[train_row_index][class_col]])
+                neighbors.append([dist, train_set.loc[train_row_index][class_col]])
             else:
                 for neighbor_index in range(len(neighbors)):
-                    if neighbors[neighbor_index][0] > euclidean_dist:
-                        neighbors[neighbor_index][0] = euclidean_dist
+                    # When using gaussian kernel values closer to 1 means more similar... select largest
+                    # When using euclidean distance... select smallest 
+                    if ((self.do_regression and neighbors[neighbor_index][0] < dist)
+                        or (not self.do_regression and neighbors[neighbor_index][0] > dist)):
+                        neighbors[neighbor_index][0] = dist
                         neighbors[neighbor_index][1] = train_set.loc[train_row_index][class_col]
                         break
         return neighbors
@@ -64,8 +69,8 @@ class KNearestNeighborPredictor(object):
             return mode([neighbor[1] for neighbor in neighbors])
         else:
             regression_prediction = (
-                sum([np.exp(-0.5 * np.square(neighbor[0]) / np.square(self.sigma))*neighbor[1] for neighbor in neighbors])
-                / sum([np.exp(-0.5 * np.square(neighbor[0]) / np.square(self.sigma)) for neighbor in neighbors])
+                sum([neighbor[0]*neighbor[1] for neighbor in neighbors])
+                / sum([neighbor[0] for neighbor in neighbors])
             )
             return regression_prediction
 
@@ -140,7 +145,6 @@ class KNearestNeighborPredictor(object):
             classification_score = MetricsEvaluator.calculate_classification_score(
                 predicted_test_set[class_col], predicted_test_set[PRED_COL_NAME]
             )
-            print(classification_score, len(edited_training_set))
             # when an iteration fails to decrease training set size or improve classification score,
             if (len(edited_training_set) >= self.training_set_sizes[-1]
                 and classification_score < self.classification_scores[-1]):
@@ -196,9 +200,6 @@ class KNearestNeighborPredictor(object):
         edited_training_set_indicies = self.make_condensed_k_nn_train_set(
             class_col, train_set
         )
-        print(edited_training_set_indicies)
-        print(train_set)
-        print(train_set.loc[edited_training_set_indicies])
         # Run using condensed training set
         predicted_test_set = self.k_nearest_neighbor(
             class_col, train_set.loc[edited_training_set_indicies], test_set
