@@ -88,6 +88,26 @@ class KNearestNeighborsPredictor(unittest.TestCase):
         print(df_indicies)
         self.assertEqual(0, len(df_indicies))
 
+    def test_make_edited_k_nn_train_set_rmv_misclassified_regression(self):
+        knnp = KNearestNeighborPredictor(
+            1, True, sigma=2.5, allowed_error=1
+        )
+        # train set
+        cols = ["class", "int_field", "int_field"]
+        data = [
+            [1, 1, 1], #0
+            [2, 2, 2], #1
+            [3, 3, 3], #2
+        ]
+        train_df = pd.DataFrame(data, columns=cols)
+        df_indicies = knnp.make_edited_k_nn_train_set(
+            "class",
+            train_df,
+        )
+        # only one item from each class should end up in the train set...
+        print(df_indicies)
+        self.assertEqual(3, len(df_indicies))
+
     def test_make_edited_k_nn_train_set_rmv_misclassified_empty(self):
         knnp = KNearestNeighborPredictor(
             1, False
@@ -194,6 +214,41 @@ class KNearestNeighborsPredictor(unittest.TestCase):
         print(knnp.classification_scores)
         self.assertTrue(pd.Series(["c1", "c2", "c3"]).equals(pred_df["prediction"]))
 
+    def test_edited_k_nearest_neighbor_regression(self):
+        knnp = KNearestNeighborPredictor(
+            2, True, sigma=2.5, allowed_error=0
+        )
+        # train set
+        cols = ["class", "int_field", "int_field"]
+        data = [
+            [1, 1, 1], #0
+            [2, 2, 2], #1
+            [3, 3, 3], #2
+            [1, 1, 1], #0
+            [2, 2, 2], #1
+            [3, 3, 3], #2
+        ]
+        train_df = pd.DataFrame(data, columns=cols)
+        # test set
+        cols = ["class", "int_field", "int_field"]
+        data = [
+            [1, 1, 1], #0
+            [2, 2, 2], #1
+            [3, 3, 3], #2
+        ]
+        test_df = pd.DataFrame(data, columns=cols)
+        # run pred
+        pred_df = knnp.edited_k_nearest_neighbor(
+            "class",
+            train_df,
+            test_df,
+            remove_correct=True
+        )
+        print(pred_df)
+        print(knnp.training_set_sizes)
+        print(knnp.classification_scores)
+        self.assertTrue(pd.Series([1.0, 2.0, 3.0]).equals(pred_df["prediction"]))
+
     def test_make_condensed_k_nearest_neighbor_train_set(self):
         knnp = KNearestNeighborPredictor(
             None, False
@@ -281,3 +336,37 @@ class KNearestNeighborsPredictor(unittest.TestCase):
         print(knnp.training_set_sizes)
         print(knnp.classification_scores)
         self.assertTrue(pd.Series(["c1", "c2", "c3"]).equals(pred_df["prediction"]))
+
+    def test_condensed_k_nearest_neighbor_regression(self):
+        knnp = KNearestNeighborPredictor(
+            1, True, sigma=1, allowed_error=0.00
+        )
+        # train set
+        cols = ["class", "int_field", "int_field"]
+        data = [
+            [1, 1, 1], #0
+            [2, 2, 2], #1
+            [3, 3, 3], #2
+            [4, 1, 1], #0
+            [5, 2, 2], #1
+            [6, 3, 3], #2
+        ]
+        train_df = pd.DataFrame(data, columns=cols)
+        # test set
+        cols = ["class", "int_field", "int_field"]
+        data = [
+            [1, 1, 1], #0
+            [2, 2, 2], #1
+            [3, 3, 3], #2
+        ]
+        test_df = pd.DataFrame(data, columns=cols)
+        # run pred
+        pred_df = knnp.condensed_k_nearest_neighbor(
+            "class",
+            train_df,
+            test_df
+        )
+        print(pred_df)
+        print(knnp.training_set_sizes)
+        print(knnp.classification_scores)
+        self.assertTrue(pd.Series([1.0, 2.0, 3.0]).equals(pred_df["prediction"]))

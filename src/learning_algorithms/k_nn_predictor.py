@@ -124,17 +124,16 @@ class KNearestNeighborPredictor(object):
             edited_training_set = self.make_edited_k_nn_train_set(
                 class_col, edited_training_set, remove_correct
             )
-            print(len(edited_training_set))
             predicted_test_set = self.k_nearest_neighbor(
                 class_col, edited_training_set, test_set
             )
             classification_score = MetricsEvaluator.calculate_classification_score(
                 predicted_test_set[class_col], predicted_test_set[PRED_COL_NAME]
             )
-            print(classification_score)
+            print(classification_score, len(edited_training_set))
             # when an iteration fails to decrease training set size or improve classification score,
             if (len(edited_training_set) >= self.training_set_sizes[-1]
-                or classification_score < self.classification_scores[-1]):
+                and classification_score < self.classification_scores[-1]):
                 return best_classification
             else:
                 self.training_set_sizes.append(len(edited_training_set))
@@ -168,8 +167,7 @@ class KNearestNeighborPredictor(object):
                     if euclidean_dist < closest_point_dist:
                         closest_point_dist = euclidean_dist
                         closest_point_index = edited_train_set_index
-                print(train_set_index, closest_point_index)
-                if self.allowed_error:
+                if self.allowed_error != None:
                     if (abs(train_set.loc[train_set_index][class_col]-train_set.loc[closest_point_index][class_col])
                         > self.allowed_error):
                         edited_train_set_indicies.append(train_set_index)
@@ -188,9 +186,12 @@ class KNearestNeighborPredictor(object):
         edited_training_set_indicies = self.make_condensed_k_nn_train_set(
             class_col, train_set
         )
+        print(edited_training_set_indicies)
+        print(train_set)
+        print(train_set.loc[edited_training_set_indicies])
         # Run using condensed training set
         predicted_test_set = self.k_nearest_neighbor(
-            class_col, train_set.iloc[edited_training_set_indicies], test_set
+            class_col, train_set.loc[edited_training_set_indicies], test_set
         )
         return predicted_test_set
 
