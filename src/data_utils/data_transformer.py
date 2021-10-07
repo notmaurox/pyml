@@ -1,4 +1,5 @@
 import logging
+import sys
 import pandas as pd
 import numpy as np
 
@@ -8,6 +9,12 @@ from math import ceil
 
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.DEBUG)
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+LOG.addHandler(handler)
 
 class DataTransformer(object):
     # Returns a list of columns in the dataframe that are missing values
@@ -22,7 +29,7 @@ class DataTransformer(object):
     def impute_missing_vales_with_mean(df: pd.DataFrame, col: str) -> pd.DataFrame:
         if col not in df.columns:
             raise ValueError(f'Column missing from dataframe: {col}')
-        col_mean=df[col].mean()
+        col_mean=df[col].mean(skipna=True)
         df[col].fillna(value=col_mean, inplace=True)
         return df
 
@@ -95,6 +102,7 @@ class DataTransformer(object):
     def define_k_folds(
         df: pd.DataFrame, k: int, class_col: str, sort_values:bool=False
     ) -> List[List[int]]:
+        LOG.info(f"Partitioning {k} chunks of data...")
         fold_indicies = [[] for _ in range(k)]
         label_counts = df[class_col].value_counts()
         class_cnt_tuples = tuple(zip(
@@ -121,8 +129,8 @@ class DataTransformer(object):
     ) -> Tuple[List[Tuple[List[int], List[int]]], List[int]]:
         # isolate dataframe indicies for hyperparam validation set and use the remaining indicies to generate k slices
         if make_hyperparam_set:
-            num_slices = int(len(df) * (1 // hyperparam_set_proportion))
-            print(num_slices)
+            LOG.info("Making hyperparam tuning set...")
+            num_slices = int(1 / hyperparam_set_proportion)
             k_fold_slices = DataTransformer.define_k_folds(df, num_slices, class_col)
             hyperparam_indicies = k_fold_slices[0]
             # make k-fold cross-validation set excluding indicies used in hyperparam set
@@ -134,6 +142,7 @@ class DataTransformer(object):
             # make k-fold cross-validation using full input dataframe
             k_fold_slices = DataTransformer.define_k_folds(df, k, class_col)
         # make k-fold cross-validation set
+        LOG.info("Making k fold cross validation sets...")
         k_fold_test_train_sets = []
         for test_fold_index in range(len(k_fold_slices)):
             train_set_indicies = [index for index in range(len(k_fold_slices)) if index != test_fold_index]

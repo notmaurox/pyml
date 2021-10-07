@@ -4,6 +4,7 @@ import sys
 import logging
 
 import pandas as pd
+import numpy as np
 
 PATH_TO_SRC_DIR = os.path.join(pathlib.Path(__file__).parent.resolve(), "../", "src/")
 sys.path.insert(0, PATH_TO_SRC_DIR)
@@ -14,6 +15,12 @@ PATH_TO_DATA_DIR = os.path.join(pathlib.Path(__file__).parent.resolve(), "../", 
 
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.DEBUG)
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+LOG.addHandler(handler)
 
 # 1.1
 # Load data from files on disk into pandas data frames and clean them for downstream analysis
@@ -47,6 +54,8 @@ class DataLoader(object):
             "bland_chromatin", "normal_nucleoli", "mitoses", "class"
         ]
         df = pd.read_csv(data_file, names=header)
+        df = df.replace("?", np.NaN)
+        df = df.apply(pd.to_numeric)
         for column_name in DataTransformer.identify_cols_with_missing_data(df):
             LOG.info(f"filling in missing vals in {column_name} with avrg")
             df = DataTransformer.impute_missing_vales_with_mean(df, column_name)
@@ -93,7 +102,7 @@ class DataLoader(object):
         df = DataTransformer.handle_ordinal_col_with_map(
             df, "acceptibility",
             {
-                "v-good": 0,
+                "vgood": 0,
                 "good": 1,
                 "acc": 2,
                 "unacc": 3
@@ -107,6 +116,7 @@ class DataLoader(object):
         for column_name in DataTransformer.identify_cols_with_missing_data(df):
             LOG.info(f"filling in missing vals in {column_name} with avrg")
             df = DataTransformer.impute_missing_vales_with_mean(df, column_name)
+        df = df.apply(pd.to_numeric)
         return df
 
     # Load forest fire dataset from files as a dataframe and apply some data transformation
@@ -163,5 +173,6 @@ class DataLoader(object):
         ]
         df = pd.read_csv(data_file, names=header)
         # Apply data transformations so that it's ready for ML application
-        df = DataTransformer.handle_nomal_col(df, "vendor")
+        df = df.drop(columns=["vendor", "model_name"])
+        df = df.apply(pd.to_numeric)
         return df

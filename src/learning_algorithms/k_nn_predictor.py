@@ -81,6 +81,9 @@ class KNearestNeighborPredictor(object):
         if not self.do_regression:
             return mode([neighbor[1] for neighbor in neighbors])
         else:
+            denominator = sum([neighbor[0] for neighbor in neighbors])
+            if denominator == 0:
+                return 0
             regression_prediction = (
                 sum([neighbor[0]*neighbor[1] for neighbor in neighbors])
                 / sum([neighbor[0] for neighbor in neighbors])
@@ -143,11 +146,11 @@ class KNearestNeighborPredictor(object):
 
     # Helper function used to determine if score has improved in edited K nn
     def _has_score_improved(self, new_score: float, old_score: float) -> bool:
-        # If we are doing regression, smaller scores are better
-        if self.do_regression:
-            return new_score < old_score
-        else: # If we are doing classification, larger scores are better
+        # If we are doing classification, larger scores are better as that is proportion classified correctly.
+        if not self.do_regression:
             return new_score > old_score
+        # If doing regression, score is MSE, smaller is better
+        return new_score < old_score
 
     # Repeats a loop until the size of the edited training set does not change or the classification score does not repeat.
     # First generates an edited training set with make_edited_k_nn_train_set and then uses that for classification.
@@ -160,12 +163,10 @@ class KNearestNeighborPredictor(object):
         # Run prediction
         edited_training_set = train_set.copy()
         self.training_set_sizes = [len(edited_training_set)]
-        # When doing regression, smaller scores better
         if self.do_regression:
             self.classification_scores = [float('inf')]
-        # When doing classification, larger scores better
         else:
-            self.classification_scores = [0.00]
+            self.classification_scores = [-1]
         best_classification = None
         while True:
             edited_training_set = self.make_edited_k_nn_train_set(
@@ -183,10 +184,11 @@ class KNearestNeighborPredictor(object):
                 classification_score = MetricsEvaluator.calculate_mean_squared_error(
                     predicted_test_set[class_col], predicted_test_set[PRED_COL_NAME]
                 )
+            print(predicted_test_set)
             print(len(edited_training_set), classification_score)
             # when an iteration fails to decrease training set size or improve classification score,
             if (self._has_score_improved(classification_score, self.classification_scores[-1])
-                or len(edited_training_set) < self.training_set_sizes[-1]):
+                and len(edited_training_set) <= self.training_set_sizes[-1]):
                 self.training_set_sizes.append(len(edited_training_set))
                 self.classification_scores.append(classification_score)
                 best_classification = predicted_test_set.copy()

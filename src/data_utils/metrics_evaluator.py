@@ -10,13 +10,16 @@ class MetricsEvaluator(object):
     # Given a set of labels/classes and the predicted labels/classes, return a value that represents the proportion
     # that were predicted correctly
     @staticmethod
-    def calculate_classification_score(labels: pd.Series, predictions: pd.Series) -> float:
+    def calculate_classification_score(labels: pd.Series, predictions: pd.Series, allowed_error:float=None) -> float:
         if len(labels) != len(predictions):
             raise ValueError("Series are different lengths")
         labels.name = "label"
         predictions.name = "prediction"
         df = labels.to_frame().join(predictions)
-        correct_predictions = len(df[df["label"] == df["prediction"]])
+        if allowed_error is None:
+            correct_predictions = len(df[df["label"] == df["prediction"]])
+        else:
+            correct_predictions = len(df[abs(df["label"] - df["prediction"]) < allowed_error])
         return float(correct_predictions / len(df))
 
     # Given a set of labels/classes and the predicted labels/classes, calculate the mean squared error
