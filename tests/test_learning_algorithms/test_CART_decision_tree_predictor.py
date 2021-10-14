@@ -88,19 +88,25 @@ class TestRegressionTree(unittest.TestCase):
         self.assertEqual(8.4, regression_tree.root.gt_feature_child.mean_label())
 
     def test_build_tree_and_classify(self):
-        cols = ["example", "feature", "class"]
+        cols = ["example", "feature", "feature_2", "class"]
         data = [
-            [1, 5,  3], 
-            [2, 5,  3], 
-            [3, 5,  5],
-            [4, 5,  3],
-            [5, 5,  3],
-            [6, 10,  8],
-            [7, 10,  8],
-            [8, 10,  10],
-            [9, 10,  8],
-            [10, 10, 8],
+            [1, 5, 4, 3], 
+            [2, 5, 5, 3], 
+            [3, 5, 6, 5],
+            [4, 5, 5, 3],
+            [5, 5, 5, 3],
+            [6, 10, 15, 8],
+            [7, 10, 16, 8],
+            [8, 10, 19, 10],
+            [9, 10, 20, 8],
+            [10, 10, 25, 8],
         ]
         df = pd.DataFrame(data, columns=cols)
         regression_tree = RegressionTree(df.drop("example", axis=1), "class", 1000)
         regression_tree.build_tree(regression_tree.root)
+        for row_index in df.index:
+            prediction = regression_tree.classify_example(df.loc[row_index])
+            if df.loc[row_index]["class"] < 8:
+                self.assertEqual(3.4, prediction)
+            else:
+                self.assertEqual(8.4, prediction)

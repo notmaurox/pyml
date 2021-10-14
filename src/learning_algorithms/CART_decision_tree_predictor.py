@@ -150,7 +150,7 @@ class RegressionTree(object):
     def _traverse_tree(self, node: Node, example: pd.DataFrame):
         # If traversal reaches a leaf, stop traversing
         if node.can_classify():
-            return node.majority_label()
+            return node.mean_label()
         # Continue traversal...
         if example[node.feature] <= node.feature_split_val:
             return self._traverse_tree(node.lte_feature_child, example)
