@@ -10,7 +10,7 @@ sys.path.insert(0, PATH_TO_SRC_DIR)
 
 from learning_algorithms.k_nn_predictor import KNearestNeighborPredictor
 
-class KNearestNeighborsPredictor(unittest.TestCase):
+class TestKNearestNeighborsPredictor(unittest.TestCase):
 
     # Demonstrate the calculation of your distance function
     def test_helper_fx_find_datapoint_k_neighbors_distance(self):
