@@ -63,18 +63,23 @@ class RegressionTree(object):
                 lte_classes = np.append(lte_classes, class_val)
                 lte_sum += class_val
         ## Calculate mse of classes with feature value greater than feature_mean
-        gt_avrg = gt_sum / len(gt_classes)
-        for index in range(len(gt_classes)):
-            gt_classes[index] = (gt_classes[index] - gt_avrg) ** 2
-        gt_mse = gt_classes.mean()
+        if len(gt_classes) > 0:
+            gt_avrg = gt_sum / len(gt_classes)
+            for index in range(len(gt_classes)):
+                gt_classes[index] = (gt_classes[index] - gt_avrg) ** 2
+            gt_mse = gt_classes.mean()
+        else:
+            gt_mse = 0
         ## Calculate mse of classes with feature value less then or equal to feature mean
-        lte_avrg = lte_sum / len(lte_classes)
-        for index in range(len(lte_classes)):
-            lte_classes[index] = (lte_classes[index] - lte_avrg) ** 2
-        print(lte_classes)
-        lte_mse = lte_classes.mean()
+        if len(lte_classes) > 0:
+            lte_avrg = lte_sum / len(lte_classes)
+            for index in range(len(lte_classes)):
+                lte_classes[index] = (lte_classes[index] - lte_avrg) ** 2
+            lte_mse = lte_classes.mean()
+        else:
+            lte_mse = 0
         ## Return avrg MSE across both classes
-        return {
+        to_return = {
            "avrg_mse": (gt_mse + lte_mse) / 2,
            "feature_split_val" : feature_mean,
            "lte_feature_split_indicies": lte_row_indicies,
@@ -82,6 +87,10 @@ class RegressionTree(object):
            "gt_feature_split_indicies": gt_row_indicies,
            "gt_examples_mse": gt_mse
         }
+        # If the feature doesn't split the data at all, it should not be considered...
+        if len(lte_classes) == 0 or len(gt_classes) == 0:
+            to_return["avrg_mse"] = float("inf")
+        return to_return
 
     @staticmethod
     def pick_best_feature_to_split(data: pd.DataFrame, class_col: str):
@@ -108,6 +117,7 @@ class RegressionTree(object):
         )
 
     def __init__(self, data: pd.DataFrame, class_col: str, partitiaion_mse_threshold: float):
+        LOG.info("Initializing new regression tree")
         self.node_count = 1
         self.class_col = class_col
         self.mse_threshold = partitiaion_mse_threshold
@@ -116,6 +126,9 @@ class RegressionTree(object):
 
     def build_tree(self, node: Node):
         if node.split_mse <= self.mse_threshold:
+            return
+        # In case that training data includes two examples that are identical in feature values but different in class
+        if node.data.groupby([col for col in node.data.columns if col != node.class_col]).ngroups == 1:
             return
         best_feature, feature_split, lte_indicies, gte_indicies, lte_mse, gt_mse = RegressionTree.pick_best_feature_to_split(
             node.data, node.class_col)
@@ -128,8 +141,8 @@ class RegressionTree(object):
             data=node.data.loc[lte_indicies],
             class_col=node.class_col,
             initial_mse=lte_mse
-
         )
+        self.node_store[lte_child_node.id] = lte_child_node
         node.lte_feature_child = lte_child_node
         self.build_tree(node.lte_feature_child)
         # Make gt child...
@@ -141,6 +154,7 @@ class RegressionTree(object):
             initial_mse=gt_mse
 
         )
+        self.node_store[gt_child_node.id] = gt_child_node
         node.gt_feature_child = gt_child_node
         self.build_tree(node.gt_feature_child)
 
@@ -156,3 +170,13 @@ class RegressionTree(object):
             return self._traverse_tree(node.lte_feature_child, example)
         elif example[node.feature] > node.feature_split_val:
             return self._traverse_tree(node.gt_feature_child, example)
+
+    def classify_examples(self, examples: pd.DataFrame):
+        LOG.info(f"Classifying {len(examples)} examples with tree...")
+        predicted_classes = []
+        for row_index in examples.index:
+            prediction = self.classify_example(examples.loc[row_index])
+            predicted_classes.append(prediction)
+        # Need to use indicies of test set when adding prediction series to test set df
+        examples["prediction"] = pd.Series(predicted_classes, index=examples.index)
+        return examples

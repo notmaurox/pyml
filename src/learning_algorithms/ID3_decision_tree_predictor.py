@@ -4,6 +4,7 @@ import logging
 import sys
 
 import pandas as pd
+import numpy as np
 from collections import defaultdict
 from typing import Dict, Tuple
 
@@ -43,6 +44,33 @@ class Node(object):
         return False
 
 class ID3ClassificationTree(object):
+
+    @staticmethod
+    def handle_numeric_attributes(data: pd.DataFrame, class_col: str):
+        for col in data.columns:
+            if np.issubdtype(data[col].dtype, np.number):
+                print(col)
+                data_mod = data.copy()
+                # Get the average for each class...
+                data_mod.sort_values(col, axis=0)
+                class_means = []
+                for class_name in data[class_col].unique():
+                    print(data.loc[data[class_col] == class_name])
+                    class_mean = data.loc[data[class_col] == class_name][col].mean()
+                    class_means.append((class_name, class_mean))
+                class_means.sort(key=lambda x: x[1])
+                print(class_means)
+                for i in range(len(class_means)-1):
+                    mid_pt_between_classes = (class_means[i][1] + class_means[i+1][1]) / 2
+                    indicies_to_replace = data_mod.loc[data_mod[col] <= mid_pt_between_classes].index.to_list()
+                    data_mod = data_mod.drop(indicies_to_replace, axis=0)
+                    data.loc[indicies_to_replace, col] = f"{class_means[i][0]}_feat_val_bucket"
+                # Replace anything larger than last midpoint between classes...
+                indicies_to_replace = data_mod.loc[data_mod[col] > mid_pt_between_classes].index.to_list()
+                data_mod.drop(indicies_to_replace, axis=0)
+                data.loc[indicies_to_replace, col] = f"{class_means[-1][0]}_feat_val_bucket"
+        return data
+
 
     @staticmethod
     def calc_entropy(class_breakdown: Dict[str, int], total_examples: int) -> float:

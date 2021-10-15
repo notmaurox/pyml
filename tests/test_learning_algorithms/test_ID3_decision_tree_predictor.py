@@ -12,6 +12,45 @@ from learning_algorithms.ID3_decision_tree_predictor import ID3ClassificationTre
 
 class TestID3ClassificationTree(unittest.TestCase):
 
+    def test_handle_numeric_attributes(self):
+        cols = ["example", "numeric_col", "class"]
+        data = [
+            [1, 1,  "Y"], #0 
+            [2, 2,  "Y"], #1 
+            [3, 3,  "Y"], #2 
+            [4, 4,  "Y"], #0 
+            [5, 5,  "Y"], #1 
+            [6, 10,  "N"], #2 
+            [7, 11,  "N"], # 
+            [8, 12,  "N"], #0 
+            [9, 13,  "N"], #1 
+            [10, 20, "P"], #2 
+            [11, 22, "P"], #0 
+            [12, 23, "P"], #1 
+            [13, 24, "P"], #2 
+            [14, 25, "P"], #0 
+        ]
+        df = pd.DataFrame(data, columns=cols)
+        df = ID3ClassificationTree.handle_numeric_attributes(df, "class")
+        # After transformation, dataframe looks like...
+        #     example            numeric_col       class
+        # 0   Y_feat_val_bucket  Y_feat_val_bucket     Y
+        # 1   Y_feat_val_bucket  Y_feat_val_bucket     Y
+        # 2   Y_feat_val_bucket  Y_feat_val_bucket     Y
+        # 3   Y_feat_val_bucket  Y_feat_val_bucket     Y
+        # 4   Y_feat_val_bucket  Y_feat_val_bucket     Y
+        # 5   N_feat_val_bucket  N_feat_val_bucket     N
+        # 6   N_feat_val_bucket  N_feat_val_bucket     N
+        # 7   N_feat_val_bucket  N_feat_val_bucket     N
+        # 8   N_feat_val_bucket  N_feat_val_bucket     N
+        # 9   P_feat_val_bucket  P_feat_val_bucket     P
+        # 10  P_feat_val_bucket  P_feat_val_bucket     P
+        # 11  P_feat_val_bucket  P_feat_val_bucket     P
+        # 12  P_feat_val_bucket  P_feat_val_bucket     P
+        # 13  P_feat_val_bucket  P_feat_val_bucket     P
+        self.assertEqual(["Y_feat_val_bucket", "N_feat_val_bucket", "P_feat_val_bucket"], df["example"].unique().tolist())
+        self.assertEqual(["Y_feat_val_bucket", "N_feat_val_bucket", "P_feat_val_bucket"], df["numeric_col"].unique().tolist())
+
     def test_calc_entropy(self):
         class_composition = {
             "pos": 9,
