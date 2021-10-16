@@ -48,27 +48,34 @@ class ID3ClassificationTree(object):
     @staticmethod
     def handle_numeric_attributes(data: pd.DataFrame, class_col: str):
         for col in data.columns:
+            if col == class_col:
+                continue
             if np.issubdtype(data[col].dtype, np.number):
-                print(col)
+                LOG.info(f"Found feature {col} as having numerical data...")
                 data_mod = data.copy()
                 # Get the average for each class...
                 data_mod.sort_values(col, axis=0)
                 class_means = []
+                LOG.info("Calculating feature value means per class group...")
                 for class_name in data[class_col].unique():
-                    print(data.loc[data[class_col] == class_name])
                     class_mean = data.loc[data[class_col] == class_name][col].mean()
                     class_means.append((class_name, class_mean))
                 class_means.sort(key=lambda x: x[1])
-                print(class_means)
+                LOG.info(f"Calculated the following class feature value means (class, feature mean) {class_means}")
+                past_mid = "NA"
                 for i in range(len(class_means)-1):
-                    mid_pt_between_classes = (class_means[i][1] + class_means[i+1][1]) / 2
+                    mid_pt_between_classes = round((class_means[i][1] + class_means[i+1][1]) / 2, 4)
+                    LOG.info(f"""Grouping values less than {mid_pt_between_classes}
+                    (midpoint between classes {class_means[i][0]} and {class_means[i+1][0]} avrg value for feature {col})""")
                     indicies_to_replace = data_mod.loc[data_mod[col] <= mid_pt_between_classes].index.to_list()
                     data_mod = data_mod.drop(indicies_to_replace, axis=0)
-                    data.loc[indicies_to_replace, col] = f"{class_means[i][0]}_feat_val_bucket"
+                    data.loc[indicies_to_replace, col] = f"vals_lt_{mid_pt_between_classes}_gt_{past_mid}"
+                    past_mid = mid_pt_between_classes
                 # Replace anything larger than last midpoint between classes...
+                LOG.info(f"Grouping values greater than {mid_pt_between_classes}")
                 indicies_to_replace = data_mod.loc[data_mod[col] > mid_pt_between_classes].index.to_list()
                 data_mod.drop(indicies_to_replace, axis=0)
-                data.loc[indicies_to_replace, col] = f"{class_means[-1][0]}_feat_val_bucket"
+                data.loc[indicies_to_replace, col] = f"vals_gt_{mid_pt_between_classes}"
         return data
 
 
@@ -110,7 +117,7 @@ class ID3ClassificationTree(object):
         return feature_entropy, gain, info_val
 
     @staticmethod
-    def pick_best_feature_to_split(data: pd.DataFrame, class_col: str) -> str:
+    def pick_best_feature_to_split(data: pd.DataFrame, class_col: str):
         feature_scores = {}
         for feature in data.columns:
             if feature == class_col:
@@ -122,6 +129,8 @@ class ID3ClassificationTree(object):
             if f_gain == 0:
                 continue
             feature_scores[feature] = (f_gain / f_info_val)
+        if feature_scores == {}:
+            return None
         return max(feature_scores, key=feature_scores.get)
 
     def __init__(self, data: pd.DataFrame, class_col: str):
@@ -134,6 +143,8 @@ class ID3ClassificationTree(object):
         if node.is_pure():
             return
         node.feature = ID3ClassificationTree.pick_best_feature_to_split(node.data, node.class_col)
+        if node.feature == None:
+            return
         for feature_val in node.data[node.feature].unique():
             # Select elements for children...
             self.node_count += 1
@@ -148,7 +159,6 @@ class ID3ClassificationTree(object):
             self.build_tree(child_node)
 
     def _traverse_tree(self, node: Node, example: pd.DataFrame):
-        print(node.id)
         # If traversal reaches a leaf, stop traversing
         if node.can_classify():
             return node.majority_label()
@@ -161,6 +171,16 @@ class ID3ClassificationTree(object):
     def classify_example(self, example: pd.DataFrame):
         return self._traverse_tree(self.root, example)
 
+    def classify_examples(self, examples: pd.DataFrame):
+        LOG.info(f"Classifying {len(examples)} examples with tree...")
+        predicted_classes = []
+        for row_index in examples.index:
+            prediction = self.classify_example(examples.loc[row_index])
+            predicted_classes.append(prediction)
+        # Need to use indicies of test set when adding prediction series to test set df
+        examples["prediction"] = pd.Series(predicted_classes, index=examples.index)
+        return examples
+
     def calculate_precision_on_set(self, data_set: pd.DataFrame,) -> float:
         correct_classifications = 0
         for row_index in data_set.index:
@@ -172,11 +192,9 @@ class ID3ClassificationTree(object):
     def prune_tree(self, validation_set: pd.DataFrame):
         # Calculate 
         best_prediction_accuracy = self.calculate_precision_on_set(validation_set)
-        print(best_prediction_accuracy)
         # iterate through nodes in reverse order...
         key_list = list(self.node_store.keys())
         key_list.reverse()
-        print(key_list)
         for node_id in key_list:
             node = self.node_store[node_id]
             # Skip leaf nodes as there are no clidren of these nodes to prune from the tree
@@ -185,7 +203,6 @@ class ID3ClassificationTree(object):
             previous_children = copy.deepcopy(node.children)
             node.children = {}
             prediction_accuracy_wo_node = self.calculate_precision_on_set(validation_set)
-            print(prediction_accuracy_wo_node)
             # If we do better with node having no children, remove it's children...
             if prediction_accuracy_wo_node >= best_prediction_accuracy:
                 node.children = {}
