@@ -44,8 +44,9 @@ if __name__ == "__main__":
     num_folds = 5
     LOG.info(f"Using {class_col} attribute as class label")
     LOG.info("Partitioning k-fold validation sets...")
+
+    # # Discretize class into 100 buckets to help partitioning4
     df["class_discretize"] = df[class_col]
-    # # Discretize class into 100 buckets to help partitioning
     df = DataTransformer.discretize_col(df, "class_discretize", 100)
     folds, hyperparam_set_indicies = DataTransformer.produce_k_fold_cross_validation_sets(
         df, num_folds, "class_discretize", make_hyperparam_set=True, hyperparam_set_proportion=0.2
@@ -59,14 +60,14 @@ if __name__ == "__main__":
     df = df.drop(columns="class_discretize")
     LOG.info(f"Tuning hyper param on {len(hyper_param_fold[0][0])} training points and {len(hyper_param_fold[0][1])} test points")
     best_mse, best_allowed_mse, best_allowed_err, best_allowed_perc = float("inf"), 0, 0, 0
-    for error_percent in [0.05, 0.1, 0.15, 0.20, 0.25]:
+    for error_percent in [0.00, 0.05, 0.1, 0.15, 0.20, 0.25]:
         LOG.info(f"Using allowed error of {error_percent} of class mean for maximum allowed parition mse")
         allowed_mse = (df[class_col].mean() * error_percent)**2
         LOG.info(f"Testing allowed mse on hyperparam validation set: {allowed_mse}")
         train_df = df.loc[hyper_param_fold[0][0]].copy()
         test_df = df.loc[hyper_param_fold[0][1]].copy()
         regression_tree = RegressionTree(train_df, class_col, allowed_mse)
-        regression_tree.build_tree(regression_tree.root)
+        regression_tree.build_tree()
         classified_tests = regression_tree.classify_examples(test_df)
         mse = MetricsEvaluator.calculate_mean_squared_error(classified_tests[class_col], classified_tests["prediction"])
         if best_mse > mse:
@@ -77,8 +78,7 @@ if __name__ == "__main__":
         LOG.info(f"Parition max mse threshold | {allowed_mse} | had prediction mse on hyperparam test set | {mse}")
         LOG.info(f"Parition max mse threshold | {allowed_mse} | resulted in a tree with node count {len(regression_tree.node_store)}")
     LOG.info(f"Best mse threshold: {best_allowed_mse} had mse: {best_mse} on hyperparam set")
-    prediction_scores = []
-    mse = []
+    prediction_scores, mse, node_count = [], [], []
     for train_indicies, test_indicies in folds:
         LOG.info(f"Learning on new fold...")
         LOG.info(f"Training on {len(train_indicies)} entitites and testing on {len(test_indicies)} entitites...")
@@ -88,8 +88,9 @@ if __name__ == "__main__":
         # Do classification...
         regression_tree = RegressionTree(train_df, class_col, allowed_mse)
         LOG.info("Building tree...")
-        regression_tree.build_tree(regression_tree.root)
-        LOG.info(f"Resuling tree had {len(regression_tree.node_store)} nodes...")
+        regression_tree.build_tree()
+        LOG.info(f"Resulting tree had {len(regression_tree.node_store)} nodes...")
+        node_count.append(len(regression_tree.node_store))
         classified_tests = regression_tree.classify_examples(test_df)
         print(classified_tests)
         LOG.info(f"Calculating MSE and classification accuracy with allowed error {best_allowed_err} ({best_allowed_perc}%)")
@@ -100,5 +101,6 @@ if __name__ == "__main__":
         prediction_scores.append(score)
         LOG.info(f"Fold had classification accuracy of {score} and MSE of {mse_score}")
     LOG.info(f"Finished 5 fold cross validation")
+    LOG.info(f"Average tree node count across k-fold cross validation: {statistics.fmean(node_count)}")
     LOG.info(f"Average classification score across k-fold cross validation: {statistics.fmean(prediction_scores)}")
     LOG.info(f"Average mean squared error across k-fold cross validation: {statistics.fmean(mse)}")

@@ -117,15 +117,16 @@ class RegressionTree(object):
         )
 
     def __init__(self, data: pd.DataFrame, class_col: str, partitiaion_mse_threshold: float):
-        LOG.info("Initializing new regression tree")
+        LOG.info(f"Initializing new regression tree with allowed partition max mse of {partitiaion_mse_threshold}")
         self.node_count = 1
         self.class_col = class_col
         self.mse_threshold = partitiaion_mse_threshold
         self.root = Node(self.node_count, data, class_col, float("inf"))
         self.node_store = {self.root.id: self.root}
 
-    def build_tree(self, node: Node):
+    def _build_tree(self, node: Node):
         if node.split_mse <= self.mse_threshold:
+            LOG.debug(f"EARLY STOPPING - Node with id {node.id} has mse {node.split_mse} less than threshold")
             return
         # In case that training data includes two examples that are identical in feature values but different in class
         if node.data.groupby([col for col in node.data.columns if col != node.class_col]).ngroups == 1:
@@ -144,7 +145,7 @@ class RegressionTree(object):
         )
         self.node_store[lte_child_node.id] = lte_child_node
         node.lte_feature_child = lte_child_node
-        self.build_tree(node.lte_feature_child)
+        self._build_tree(node.lte_feature_child)
         # Make gt child...
         self.node_count += 1
         gt_child_node = Node(
@@ -156,19 +157,28 @@ class RegressionTree(object):
         )
         self.node_store[gt_child_node.id] = gt_child_node
         node.gt_feature_child = gt_child_node
-        self.build_tree(node.gt_feature_child)
+        self._build_tree(node.gt_feature_child)
+    
+    def build_tree(self):
+        LOG.info("Building tree...")
+        self._build_tree(self.root)
 
     def classify_example(self, example: pd.DataFrame):
+        LOG.debug(f"Classifying example: {example}")
         return self._traverse_tree(self.root, example)
     
     def _traverse_tree(self, node: Node, example: pd.DataFrame):
         # If traversal reaches a leaf, stop traversing
         if node.can_classify():
+            LOG.debug(f"Reached node {node.id} with no children, returning label {node.mean_label()}")
             return node.mean_label()
         # Continue traversal...
+        LOG.debug(f"At node splitting on feature {node.feature}")
         if example[node.feature] <= node.feature_split_val:
+            LOG.debug(f"Taking less than or equal to branch from split {node.feature_split_val} with feature val {example[node.feature]}")
             return self._traverse_tree(node.lte_feature_child, example)
         elif example[node.feature] > node.feature_split_val:
+            LOG.debug(f"Taking greater than branch from split {node.feature_split_val} with feature val {example[node.feature]}")
             return self._traverse_tree(node.gt_feature_child, example)
 
     def classify_examples(self, examples: pd.DataFrame):
@@ -176,6 +186,7 @@ class RegressionTree(object):
         predicted_classes = []
         for row_index in examples.index:
             prediction = self.classify_example(examples.loc[row_index])
+            LOG.debug(f"Recieved prediction {prediction} for example with label {examples.loc[row_index][self.class_col]}")
             predicted_classes.append(prediction)
         # Need to use indicies of test set when adding prediction series to test set df
         examples["prediction"] = pd.Series(predicted_classes, index=examples.index)

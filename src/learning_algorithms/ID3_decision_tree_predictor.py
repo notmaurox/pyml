@@ -161,14 +161,17 @@ class ID3ClassificationTree(object):
     def _traverse_tree(self, node: Node, example: pd.DataFrame):
         # If traversal reaches a leaf, stop traversing
         if node.can_classify():
+            LOG.debug(f"Example reached node {node.id} with no children...")
             return node.majority_label()
         # If attempting to follow a branch that doesn't exist, stop traversing
         if node.children.get(example[node.feature]) is None:
             return node.majority_label()
         # Continue traversal...
+        LOG.debug(f"Example taking {node.feature} branch val {example[node.feature]}")
         return self._traverse_tree(node.children[example[node.feature]], example)
 
     def classify_example(self, example: pd.DataFrame):
+        LOG.debug(f"Classifying example {example}")
         return self._traverse_tree(self.root, example)
 
     def classify_examples(self, examples: pd.DataFrame):
@@ -192,25 +195,33 @@ class ID3ClassificationTree(object):
     def prune_tree(self, validation_set: pd.DataFrame):
         # Calculate 
         best_prediction_accuracy = self.calculate_precision_on_set(validation_set)
+        LOG.info(f"PRUNING TREE - Initial prediction accuracy: {best_prediction_accuracy}")
+        LOG.info(f"PRUNING TREE - Initial node count: {len(self.node_store)}")
         # iterate through nodes in reverse order...
         key_list = list(self.node_store.keys())
         key_list.reverse()
         for node_id in key_list:
+            LOG.debug(f"Removing children from node with id {node_id}")
             node = self.node_store[node_id]
             # Skip leaf nodes as there are no clidren of these nodes to prune from the tree
             if node.children == {}:
+                LOG.debug(f"Node {node_id} has no children... continuing to next...")
                 continue
             previous_children = copy.deepcopy(node.children)
             node.children = {}
             prediction_accuracy_wo_node = self.calculate_precision_on_set(validation_set)
+            LOG.debug(f"Resulting prediction accuracy: {prediction_accuracy_wo_node}")
             # If we do better with node having no children, remove it's children...
             if prediction_accuracy_wo_node >= best_prediction_accuracy:
+                LOG.debug(f"Prediction accuracy greater than or equal to unpruned tree, removing children from node {node_id}")
                 node.children = {}
                 for _, child_node in previous_children.items():
                     self.node_store.pop(child_node.id)
                 best_prediction_accuracy = prediction_accuracy_wo_node
             else:
                 node.children = previous_children
+        LOG.info(f"PRUNING TREE - Final node count: {len(self.node_store)}")
+        
 
 
 
