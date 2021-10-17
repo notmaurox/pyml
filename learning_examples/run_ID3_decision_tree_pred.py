@@ -24,6 +24,10 @@ LOG.addHandler(handler)
 
 DO_PRUNING = False
 
+# Takes two runtime args...
+# 1 - Name of data set to use..
+# 2 - true if to do pruning, false if not.
+
 if __name__ == "__main__":
     data_set_name = sys.argv[1]
     do_pruning =  sys.argv[2]
@@ -34,20 +38,24 @@ if __name__ == "__main__":
         df = DataLoader.load_breast_cancer_data()
         df = df.drop(columns="sample")
         class_col = "class" #attempt to predict cancer class
+        LOG.info("Categorizing numerical features...")
+        df = ID3ClassificationTree.handle_numeric_attributes(df, class_col)
     elif "car" in data_set_name:
         LOG.info("Running majority prediction on car data set")
         df = DataLoader.load_car_data()
         class_col = "acceptibility" #attempt to precit acceptibility
+        LOG.info("Categorizing numerical features...")
+        df = ID3ClassificationTree.handle_numeric_attributes(df, class_col)
     elif "house" in data_set_name:
         LOG.info("Running majority prediction on house votes 84 data set")
         df = DataLoader.load_house_votes_data()
+        for column in df.columns:
+            df[column] = df[column].astype(str)
         class_col = "crime_y" #attempt to predict if vote yes on crime bill
     else:
         raise ValueError(f"Specified data set {data_set_name} no allowed")
     LOG.info(f"Using {class_col} attribute as class label")
     num_folds = 5
-    LOG.info("Categorizing numerical features...")
-    df = ID3ClassificationTree.handle_numeric_attributes(df, class_col)
     print(df)
     LOG.info("Partitioning k-fold validation sets...")
     if DO_PRUNING:

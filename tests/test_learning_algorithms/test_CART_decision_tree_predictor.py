@@ -51,6 +51,7 @@ class TestRegressionTree(unittest.TestCase):
             early_stop_rt = RegressionTree(train_df, class_col, 4)
             early_stop_rt.build_tree()
             LOG.info(f"Regression  tree  with  early stopping had {len(early_stop_rt.node_store)} nodes")
+            # Assure that for the same training set, a tree with early stopping has less nodes than one without
             self.assertLess(len(early_stop_rt.node_store), len(no_early_stop_rt.node_store))
 
     # Demonstrate the calculation of mean squared error
@@ -137,6 +138,7 @@ class TestRegressionTree(unittest.TestCase):
         learning_algorithms.CART_decision_tree_predictor.handler.setLevel(logging.INFO)
         learning_algorithms.CART_decision_tree_predictor.LOG.setLevel(logging.INFO)
 
+    # Test picking the best feature to split...
     def test_pick_best_feature_to_split(self):
         # Feature 2 results in a split where first group is indicies 0-8 and second group is index 9.
         # This will have much worse MSE than feature 1 where the more similar groups are put togeter. 
@@ -163,6 +165,7 @@ class TestRegressionTree(unittest.TestCase):
         self.assertEqual([5, 6, 7, 8, 9], gte_indicies)
         self.assertEqual(0.64, round(gt_mse, 2))
 
+    # Test building of a tree...
     def test_build_tree(self):
         cols = ["example", "feature", "class"]
         data = [

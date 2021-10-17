@@ -182,6 +182,7 @@ class TestID3ClassificationTree(unittest.TestCase):
         learning_algorithms.ID3_decision_tree_predictor.handler.setLevel(logging.INFO)
         learning_algorithms.ID3_decision_tree_predictor.LOG.setLevel(logging.INFO)
 
+    # Test transforming of numeric attributes with edges defined by the midpoint between class average vals...
     def test_handle_numeric_attributes(self):
         cols = ["example", "numeric_col", "class"]
         data = [
@@ -226,6 +227,7 @@ class TestID3ClassificationTree(unittest.TestCase):
             df["numeric_col"].unique().tolist()
         )
 
+    # test calculation of entropy - example taken from lecture slides...
     def test_calc_entropy(self):
         class_composition = {
             "pos": 9,
@@ -235,6 +237,7 @@ class TestID3ClassificationTree(unittest.TestCase):
         entropy = ID3ClassificationTree.calc_entropy(class_composition, total_examples)
         self.assertEqual(round(entropy, 2), 0.94)
 
+    # Calculate feature entropy and information gain and gain ratio, example taken from lecture. 
     def test_calculate_feature_and_info_val(self):
         cols = ["example", "outlook", "class"]
         data = [
@@ -265,6 +268,7 @@ class TestID3ClassificationTree(unittest.TestCase):
         gain_ratio = gain / info_val # 0.25 / 1.577
         self.assertEqual(round(gain_ratio, 2), 0.16)
 
+    # test identifcation of best feature to split on from input dataframe...
     def test_id_best_feature(self):
         cols = ["example", "outlook", "temp", "humidity", "wind", "class"]
         data = [
