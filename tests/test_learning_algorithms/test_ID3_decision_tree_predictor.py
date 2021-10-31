@@ -26,6 +26,7 @@ LOG.addHandler(handler)
 
 class TestID3ClassificationTree(unittest.TestCase):
 
+    # Provide sample outputs from one test set on one fold for a classification tree
     # Show a sample classification tree without pruning and with pruning.
     def test_unpruned_vs_pruned_tree(self):
         ## Test data set - Car rating
@@ -65,6 +66,7 @@ class TestID3ClassificationTree(unittest.TestCase):
             score = round(score, 4)
             LOG.info(f"resulting classification score: {score}")
             pruned_prediction_scores.append(score)
+            break
         avrg_pred_score, avrg_node_count = statistics.fmean(prediction_scores), statistics.fmean(node_count)
         pruned_avrg_pred_score, pruned_avrg_node_count = statistics.fmean(pruned_prediction_scores), statistics.fmean(pruned_node_count)
         LOG.info(f"ID3 tree w/o pruining had on average {round(avrg_node_count, 0)} nodes with accuracy {avrg_pred_score}")

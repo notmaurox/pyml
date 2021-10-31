@@ -26,6 +26,7 @@ LOG.addHandler(handler)
 
 class TestRegressionTree(unittest.TestCase):
 
+    # Provide sample outputs from one test set on one fold for a Regression tree...
     # Show a sample regression tree without early stopping and with early stopping.
     def test_regression_tree_no_early_stopping_vs_early_stopping(self):
         df = DataLoader.load_abalone_data()
@@ -47,12 +48,19 @@ class TestRegressionTree(unittest.TestCase):
             no_early_stop_rt = RegressionTree(train_df, class_col, 0.00)
             no_early_stop_rt.build_tree()
             LOG.info(f"Regression tree without early stopping had {len(no_early_stop_rt.node_store)} nodes")
+            classified_tests = no_early_stop_rt.classify_examples(test_df)
+            mse_score = MetricsEvaluator.calculate_mean_squared_error(classified_tests[class_col], classified_tests["prediction"])
+            LOG.info(f"Tree w/o early stopping had MSE {mse_score}")
             # Build early stopping tree with allowed MSE of 4...
             early_stop_rt = RegressionTree(train_df, class_col, 4)
             early_stop_rt.build_tree()
             LOG.info(f"Regression  tree  with  early stopping had {len(early_stop_rt.node_store)} nodes")
+            classified_tests = early_stop_rt.classify_examples(test_df)
+            mse_score = MetricsEvaluator.calculate_mean_squared_error(classified_tests[class_col], classified_tests["prediction"])
+            LOG.info(f"Tree w   early stopping had MSE {mse_score}")
             # Assure that for the same training set, a tree with early stopping has less nodes than one without
             self.assertLess(len(early_stop_rt.node_store), len(no_early_stop_rt.node_store))
+            break
 
     # Demonstrate the calculation of mean squared error
     def test_calculate_feature_mse(self):
