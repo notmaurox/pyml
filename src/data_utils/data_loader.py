@@ -144,7 +144,7 @@ class DataLoader(object):
     # Note from assignment - Be careful with this data set since “?” does not indicate a missing attribute value.
     # It actually means “abstain.”
     @staticmethod
-    def load_house_votes_data() -> pd.DataFrame:
+    def load_house_votes_data(adjust=True) -> pd.DataFrame:
         data_file = os.path.join(PATH_TO_DATA_DIR, "house-votes-84.data")
         header = [
             "class_name", "handicapped_infants", "water_project_cost_sharing", "adoption_of_budget_resoluiton",
@@ -155,8 +155,9 @@ class DataLoader(object):
         ]
         df = pd.read_csv(data_file, names=header)
         # Here pretty much every column should be broken up as nominal features
-        for column_name in header:
-            df = DataTransformer.handle_nomal_col(df, column_name)
+        if adjust:
+            for column_name in header:
+                df = DataTransformer.handle_nomal_col(df, column_name)
         return df
 
     # Load computer hardware dataset from files as a dataframe and apply some data transformation

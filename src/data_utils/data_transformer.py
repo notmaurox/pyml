@@ -158,6 +158,15 @@ class DataTransformer(object):
     def log_transform_column(df: pd.DataFrame, col: str) -> pd.DataFrame:
         if col not in df.columns:
             raise ValueError(f'Column missing from dataframe: {col}')
-        df[col] = np.log10(df[col])
+        df[col] = np.log2(df[col])
         return df
 
+    @staticmethod
+    def min_max_normalize_column(df: pd.DataFrame, col: str) -> pd.DataFrame:
+        LOG.info(f"Min max normalizing col {col}")
+        col_min = df[col].min()
+        col_max = df[col].max()
+
+        df[col] = ((df[col] - col_min) / (col_max - col_min))
+
+        return df

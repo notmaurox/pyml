@@ -38,19 +38,21 @@ if __name__ == "__main__":
         for column_name in df.columns:
             if column_name == class_col:
                 continue
-            df = DataTransformer.handle_nomal_col(df, column_name)
+            df = DataTransformer.min_max_normalize_column(df, column_name)
     elif "car" in data_set_name:
         LOG.info("Running majority prediction on car data set")
         df = DataLoader.load_car_data()
         class_col = "acceptibility" #attempt to precit acceptibility
-        for column_name in df.columns:
-            if column_name == class_col:
-                continue
-            df = DataTransformer.handle_nomal_col(df, column_name)
+        for column_name in ["buying", "maint", "safety"]:
+            df = DataTransformer.min_max_normalize_column(df, column_name)
     elif "house" in data_set_name:
         LOG.info("Running majority prediction on house votes 84 data set")
-        df = DataLoader.load_house_votes_data()
-        class_col = "crime_y" #attempt to predict if vote yes on crime bill
+        df = DataLoader.load_house_votes_data(adjust=False)
+        class_col = "class_name" #attempt to predict class affiliation
+        for col in df.columns:
+            if col == class_col:
+                continue
+            df = DataTransformer.handle_nomal_col(df, col)
     else:
         raise ValueError(f"Specified data set {data_set_name} no allowed")
     LOG.info(f"Using {class_col} attribute as class label")
