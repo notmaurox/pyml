@@ -23,6 +23,8 @@ formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(messag
 handler.setFormatter(formatter)
 LOG.addHandler(handler)
 
+# First arg = data set name
+# Second arg = do autoencorder assisted neural network.
 if __name__ == "__main__":
     data_set_name = sys.argv[1]
     autoencode = sys.argv[2]
@@ -125,8 +127,9 @@ if __name__ == "__main__":
         nn = NeuralNetwork(train_df, class_col, 2, 7, do_regression, learning_rate)
         if autoencode != "false":
             LOG.info(f"Training Autoencoder...")
-            ac = Autoencoder(train_df, class_col, 5, learning_rate)
-            ac.train_network(25)
+            encoding_layer_neurons = int((len(train_df.columns)-1)*0.60)
+            ac = Autoencoder(train_df, class_col, encoding_layer_neurons, learning_rate)
+            ac.train_network(30)
             LOG.info(f"Applying autoencoder layer to NN...")
             nn.apply_autoencoder_layer(ac.layers[0])
         training_iterations = nn.train_network(max_iterations)

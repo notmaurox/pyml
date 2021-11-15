@@ -20,7 +20,10 @@ handler.setFormatter(formatter)
 LOG.addHandler(handler)
 
 class NetworkLayer(object):
-    
+
+    # Class constuctor that stores a list of weights where the number of items in the list are the number of neurons in the
+    # layer and each item in the list is the weight vector for that neuron. Also contains other attributes for the
+    # tracking of values during back propogation.
     def __init__(self, num_weights: int, num_neurons: int, do_regression: bool, linear_comb=False):
         self.neurons = num_neurons
         self.num_weights = num_weights
@@ -32,11 +35,14 @@ class NetworkLayer(object):
         self.deltas = [0 for _ in range(num_weights)]
         self.inputs = [0 for _ in range(num_neurons)]
         self.linear_comb = linear_comb
-        
+    
+    # Used to print the weights of all the neurons in a layer
     def print(self):
         for neuron_index in range(len(self.weights)):
             print(f"Neuron {neuron_index} weights: {[str(weight)[:14] for weight in self.weights[neuron_index]]}")
 
+    # Apply batch update to the weights in the layer by looking at all the proposed weight adjustments stored in the
+    # self.weight_adj list
     def batch_update(self):
         for neuron_index in range(self.neurons):
             for weight_index in range(len(self.weights[neuron_index])):
@@ -48,38 +54,58 @@ class NetworkLayer(object):
         self.weight_adj = [[[] for _ in range(self.num_weights)] for _ in range(self.neurons)]
         LOG.info(f"Performed batch update of weights")
 
+    # Reset class attributes that were used for a single round of backpropogation
     def reset(self):
         self.last_input = None
         self.last_output = [0 for _ in range(self.neurons)]
         self.delta = [0 for _ in range(self.neurons)]
 
+    # Apply each neuron in the layer to an input vector, store the last input and output values, and return output
+    # of the layer
     def apply_layer(self, example: pd.DataFrame):
         example = np.array(example)
-        self.last_input = example
+        LOG.debug(f"Networking: {example}")
+        self.last_input = example # track the last input for back propogation later
+        # This is used to designate the output layer of a regression neural netowrk that only contains a single neuron
+        # perofrming a linear combination of the outputs of the last hidden layer
         if self.linear_comb:
             self.last_output = [self.apply_neuron_linear(example, self.weights[0])]
             return self.last_output[0]
         layer_output = []
+        # If not the special case of a regression output layer, apply each neuron to the input vector and return the
+        # results of each as an output vector.
         for neuron_index in range(self.neurons):
             layer_output.append(
                 self.apply_neuron_sigmoid(example, self.weights[neuron_index])
             )
+        # Track the last output for backpropogation later
         self.last_output = layer_output
+        LOG.debug(f"Outputting: {layer_output}")
         return layer_output
 
+    # Apply the weights of the neuron to an input as a linear combination
     def apply_neuron_linear(self, example: pd.DataFrame, w: List[float]):
         ret = (np.dot(w, example)) # Linear activation
         return ret
 
+    # Apply the weights of the neuron to an input with sigmoid activation applied
     def apply_neuron_sigmoid(self, example: pd.DataFrame, w: List[float]):
+        LOG.debug(f"Sigmoid activation of {example} on neuron with weights...")
+        LOG.debug(f"Neuron weight vector... {w}")
         ret = 1.0 / (1.0 + np.exp(-1.0 * (np.dot(w, example)))) # Sigmoid activation
+        LOG.debug(f"Resulted in {ret}")
         return ret
     
+    # Using the last output of the layer, calculate the transfer derivative for each node in the layer and return as
+    # a vector...
     def transfer_derivatives(self):
         return [(output * (1.0 - output)) for output in self.last_output]
 
 class NeuralNetwork(object):
 
+    # Class constuctor that takes a data frame consisting of examples used for training, a string designating the class
+    # label, integers for the number of hidden layer, number of neurons per hidden layer, a boolean setting if
+    # regression or classification will occur, and a learning rate...
     def __init__(
         self, data: pd.DataFrame, class_col: str,
         num_hidden_layers: int, num_hidden_layer_neurons: int, do_regression: bool, learning_rate: float
@@ -108,6 +134,7 @@ class NeuralNetwork(object):
         for layer_index in range(len(self.layers)):
             LOG.info(f"    layer {str(layer_index+1)} has {str(self.layers[layer_index].neurons)} neurons each with {str(len(self.layers[layer_index].weights[0]))} weights")
 
+    # Pass an example through each layer of the network and return the result of the output layer
     def network_example(self, example: pd.DataFrame, do_print=False):
         networked_example = np.array(example)
         if do_print:
@@ -118,26 +145,13 @@ class NeuralNetwork(object):
                 print(networked_example)
         return networked_example
 
-    def classify_networked_example(self, networked_example):
-        if self.do_regression:
-            # Do a linear combination of output layer...
-            return networked_example, None
-        else:
-            # Do soft max of output layer...
-            class_scores = {}
-            for class_index in range(len(self.class_names)):
-                class_scores[self.class_names[class_index]] = np.exp(networked_example[class_index])
-            denom = sum(score for score in class_scores.values())
-            class_scores["denom"]
-            best_class, best_class_score = 0, 0
-            for class_name in class_scores.keys():
-                class_scores[class_name] = (class_scores[class_name] / denom)
-                if class_scores[class_name] > best_class_score:
-                    best_class, best_class_score = class_name, class_scores[class_name]
-            return best_class, class_scores
-
+    # Given the expected output of an example that was just networked thouth the neural net, backpropogate error
+    # The class scores dictionary must be provided when doing classificaiton where the keys are a class name and the
+    # values are the adjusted probability of that class from applying softmax. The apply_change flag is used to
+    # track proposed weight changes but not actually apply them.
     def back_propogate_error_from_output_expectation(self, expected_output, class_scores=None, apply_change=False):
         # Determine delta of output layer...
+        LOG.debug("Backpropogating error...")
         output_layer = self.layers[-1]
         if self.do_regression: # Derivative of MSE
             # print(output_layer.last_output[0], expected_output)
@@ -153,7 +167,7 @@ class NeuralNetwork(object):
                     delta += (-1/class_scores[class_name])
                 else:
                     delta += (1/(1-class_scores[class_name]))
-                # dSoftmaxOut/dNeuronOutput
+                # Multiply by dSoftmaxOut/dNeuronOutput
                 delta = delta * (
                     (output_layer.last_output[index] * (sum(output_layer.last_output)-output_layer.last_output[index]))
                     / (sum(output_layer.last_output)**2)
@@ -163,6 +177,7 @@ class NeuralNetwork(object):
             # The last real layer in the nextwork prior to softmax calculation applied sigmoid function so multiply
             # by transfer derivative to generate deltas contextualized to that layer...
             deltas = np.array(deltas) * np.array(output_layer.transfer_derivatives())
+            LOG.debug(f"Output layer deltas: {deltas}")
         output_layer.deltas = deltas
         # Back proprogate from output layer...
         for i in reversed(range(len(self.layers)-1)):
@@ -181,9 +196,11 @@ class NeuralNetwork(object):
                     )
                 errors.append(curr_layer_neuron_error)
             curr_layer.deltas = np.array(errors) * np.array(curr_layer.transfer_derivatives())
+            LOG.debug(f"Hidden layer layer deltas: {curr_layer.deltas}")
         # Iterate though layers applying deltas to calculate weight updates...
         for layer_index in range(len(self.layers)):
             curr_layer = self.layers[layer_index]
+            LOG.debug(f"Layer weights prior to update: {curr_layer.weights}")
             for neuron_index in range(len(curr_layer.weights)):
                 for weight_index in range(len(curr_layer.weights[neuron_index])):
                     # print(layer_index, neuron_index, weight_index)
@@ -193,7 +210,10 @@ class NeuralNetwork(object):
                     if apply_change:
                         curr_layer.weights[neuron_index][weight_index] -= weight_adj
                     curr_layer.weight_adj[neuron_index][weight_index].append(weight_adj)
+            LOG.debug(f"Layer weights post update: {curr_layer.weights}")
 
+    # Take the output of a networked example that is being classified, compute softmax calculation, return best class
+    # and a dictionary where the key is the name of the class and the value is the softmax adjusted probability of the class
     def apply_softmax(self, networked_example):
         # Do soft max of output layer...
         class_scores = {}
@@ -207,17 +227,23 @@ class NeuralNetwork(object):
                 best_class, best_class_score = class_name, class_scores[class_name]
         return best_class, class_scores
 
+    # Go through each layer and apply updates that have been set from previous back_propogate_error_from_output_expectation
+    # call where apply_change had been set to false...
     def apply_updates(self):
         for layer in self.layers:
             layer.batch_update()
             layer.reset()
 
+    # Given a max number of iterations, shuffle the training examples and iterate through them to train the network. 
+    # As currently implemented this applies stochastic gradient decent where each example is used to update the weights
+    # after it has been propogated through the network.
     def train_network(self, iterations: int):
         mean_squared_errors = []
         # self.print()
         for iteration_index in range(iterations):
             iteration_error = 0
             examples_trained = 0
+            # Iterate through the training examples in random order...
             row_indicies = list(self.data.index)
             random.shuffle(row_indicies)
             for example_index in row_indicies:
@@ -227,12 +253,14 @@ class NeuralNetwork(object):
                 if self.do_regression:
                     prediction = networked_example
                     iteration_error += (expected_output - prediction)**2
+                    # Backpropogate error from this example
                     self.back_propogate_error_from_output_expectation([expected_output], None, apply_change=True)
                 else:
                     # Apply softmaxx...
                     best_class, class_scores = self.apply_softmax(networked_example)
                     if expected_output != best_class:
                         iteration_error += 1
+                    # Backpropogate error from this example passing class scores for derivative calculation...
                     self.back_propogate_error_from_output_expectation(expected_output, class_scores, apply_change=True)
                 examples_trained += 1
             # self.apply_updates()
@@ -250,7 +278,9 @@ class NeuralNetwork(object):
         # self.print()
         return iteration_index
 
-    def classify_examples(self, examples):
+    # Given a data frame of test examples, iterate though them classifying each. Add predictions as a column labeled with
+    # "prediction" to the dataframe
+    def classify_examples(self, examples: pd.DataFrame):
         predicted_classes = []
         data = examples.drop(self.class_col, axis=1)
         for row_index in data.index:
@@ -264,11 +294,14 @@ class NeuralNetwork(object):
         examples["prediction"] = pd.Series(predicted_classes, index=examples.index)
         return examples
 
+    # Print the network by calling each layers print method
     def print(self):
         for layer_index in range(len(self.layers)):
             print(f"Layer {layer_index} info...")
             self.layers[layer_index].print()
 
+    # Given a NetworkLayer from an autoencoder, replace the first layer of the network with it and adjust number of 
+    # weights in the following layer...
     def apply_autoencoder_layer(self, encoder_layer: NetworkLayer):
         self.layers[0] = encoder_layer
         num_hidden_neurons = len(self.layers[1].weights)
@@ -276,7 +309,9 @@ class NeuralNetwork(object):
 
 
 class Autoencoder(NeuralNetwork):
-
+    # An extension of a NeuralNetwork with limited functionality. It only cares to learn the input date by
+    # encoding it in one layer and decoding it in the next. all methods are the same except train network as the 
+    # expected output is the same as int input...
     def __init__(self, data: pd.DataFrame, class_col: str, num_hidden_layer_neurons: int, learning_rate: float):
         LOG.info(f"Initialized AutoEncoder")
         self.do_regression = True
@@ -298,7 +333,8 @@ class Autoencoder(NeuralNetwork):
         for layer_index in range(len(self.layers)):
             LOG.info(f"    layer {str(layer_index+1)} has {str(self.layers[layer_index].neurons)} neurons each with {str(len(self.layers[layer_index].weights[0]))} weights")
 
-
+    # Iterate through the training data in random order iterations number of times encoding and decoding each example.
+    # 
     def train_network(self, iterations: int):
         prev_mse = float('inf')
         mean_squared_errors = []
@@ -306,24 +342,27 @@ class Autoencoder(NeuralNetwork):
         for iteration_index in range(iterations):
             iteration_error = 0
             examples_trained = 0
+            # Iterate in random order
             row_indicies = list(self.data.index)
             random.shuffle(row_indicies)
             for example_index in row_indicies:
                 networked_example = self.network_example(self.data.loc[example_index])
+                # Notice that expected output = input initially provided to the network
                 expected_output = self.data.loc[example_index]
-                # Calculate error
+                # Calculate error using MSE
                 iteration_error += sum((expected_output - networked_example)**2)
                 self.back_propogate_error_from_output_expectation(expected_output, None, apply_change=True)
                 examples_trained += 1
             # self.apply_updates()
             pad = 4-len(str(iteration_index))
-
             mse = ( iteration_error / len(self.data))
             LOG.info(f"Iteration {' '*pad}{iteration_index} MSE - {mse}")
             if len(mean_squared_errors) > 6:
                 if mean(mean_squared_errors[:-5]) < mse:
                     LOG.info(f"Iteration MSE increased from recent average... exiting...")
                     return
+            LOG.info(f"Auto encoder weights... ")
+            self.print()
 
 
 

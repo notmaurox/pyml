@@ -23,6 +23,8 @@ formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(messag
 handler.setFormatter(formatter)
 LOG.addHandler(handler)
 
+# First arg - Data set name
+# Second arg - minimum number of iterations...
 if __name__ == "__main__":
     data_set_name = sys.argv[1]
     min_iterations = int(sys.argv[2])
@@ -30,21 +32,19 @@ if __name__ == "__main__":
         LOG.info("Running majority prediction on abalone data set")
         df = DataLoader.load_abalone_data()
         class_col = "rings" #attempt to predict weight of meat
-        for column_name in df.columns:
+        for column_name in ["length", "diameter", "height", "whole_weight", "shucked_weight", "viscera_weight", "shell_weight"]:
             if column_name == class_col:
                 continue
-            df = DataTransformer.handle_nomal_col(df, column_name)
-        print(df)
+            df = DataTransformer.min_max_normalize_column(df, column_name)
     elif "forest" in data_set_name:
         LOG.info("Running majority prediction on forest fire data set")
         df = DataLoader.load_forestfires_data()
         df["area"] = df["area"] + 0.01 # to remove -inf from log transform
         df = DataTransformer.log_transform_column(df, "area")
+        df = df.drop(columns="x").drop(columns="y")
         class_col = "area" #attempt to predict burned area of forest
-        for column_name in df.columns:
-            if column_name == class_col:
-                continue
-            df = DataTransformer.handle_nomal_col(df, column_name)
+        for column_name in ["FFMC", "DMC", "DC", "ISI", "temp", "RH", "wind", "rain"]:
+            df = DataTransformer.min_max_normalize_column(df, column_name)
     elif "machine" in data_set_name or "computer" in data_set_name or "hardware" in data_set_name:
         LOG.info("Running majority prediction on computer hardware data set")
         df = DataLoader.load_machine_data()
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         for column_name in df.columns:
             if column_name == class_col:
                 continue
-            df = DataTransformer.handle_nomal_col(df, column_name)
+            df = DataTransformer.min_max_normalize_column(df, column_name)
     else:
         raise ValueError(f"Specified data set {data_set_name} no allowed")
     num_folds = 5
