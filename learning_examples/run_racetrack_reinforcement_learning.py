@@ -10,7 +10,7 @@ PATH_TO_SRC_DIR = os.path.join(pathlib.Path(__file__).parent.resolve(), "../", "
 sys.path.insert(0, PATH_TO_SRC_DIR)
 
 from data_utils.race_track import RaceTrackLoader, RaceTrack, RaceCar
-from learning_algorithms.racetrack_value_iteration import RaceTrackValueIteration
+from learning_algorithms.racetrack_value_iteration import RaceTrackValueIteration, QLearning, SARSA
 
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.INFO)
@@ -52,6 +52,14 @@ if __name__ == "__main__":
     if "value" in learning_type:
         rt_value_iteration = RaceTrackValueIteration(rt, rc, 0.80, max_iterations, reset_on_crash)
         rt_value_iteration.learn_policy()
+    if "Q" in learning_type:
+        q_learning = QLearning(rt, rc, learning_rate=0.25, max_episodes=max_iterations,
+            crash_means_restart=reset_on_crash, discount_rate=0.90)
+        q_learning.learn_policy()
+    if "SARSA" in learning_type:
+        sarsa = SARSA(rt, rc, learning_rate=0.25, max_episodes=max_iterations,
+            crash_means_restart=reset_on_crash, discount_rate=0.90)
+        sarsa.learn_policy()
 
 
 

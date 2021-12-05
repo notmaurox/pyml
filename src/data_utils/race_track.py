@@ -84,20 +84,24 @@ class RaceTrack(object):
         x_delta, y_delta = abs(x_delta), abs(y_delta)
 
         if x_delta > y_delta:
-            x_dx, x_dy, y_dx, y_dy = x_sign, 0, 0, y_sign
+            x_dx, x_dy = x_sign, 0
+            y_dx, y_dy = 0, y_sign
         else:
             x_delta, y_delta = y_delta, x_delta
-            x_dx, x_dy, y_dx, y_dy = 0, y_sign, x_sign, 0
+            x_dx, x_dy = 0, y_sign
+            y_dx, y_dy = x_sign, 0
 
-        d = 2*y_delta - x_delta
+        delta = 2*y_delta - x_delta
         y = 0
         to_return = []
         for x in range(x_delta + 1):
-            to_return.append((x1 + x*x_dx + y*y_dx, y1 + x*x_dy + y*y_dy))
-            if d >= 0:
+            x_coordinate = x1 + x*x_dx + y*y_dx
+            y_coordinate = y1 + x*x_dy + y*y_dy
+            to_return.append((x_coordinate, y_coordinate))
+            if delta >= 0:
                 y += 1
-                d -= 2*x_delta
-            d += 2*y_delta
+                delta -= 2*x_delta
+            delta += 2*y_delta
         return to_return
 
     def legal_states(self):
