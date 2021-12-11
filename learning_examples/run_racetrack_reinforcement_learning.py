@@ -12,11 +12,11 @@ sys.path.insert(0, PATH_TO_SRC_DIR)
 from data_utils.race_track import RaceTrackLoader, RaceTrack, RaceCar
 from learning_algorithms.racetrack_value_iteration import RaceTrackValueIteration, QLearning, SARSA
 
+log_level = logging.INFO
 LOG = logging.getLogger(__name__)
-LOG.setLevel(logging.INFO)
-
+LOG.setLevel(log_level)
 handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.INFO)
+handler.setLevel(log_level)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 LOG.addHandler(handler)
@@ -59,6 +59,7 @@ if __name__ == "__main__":
         learning_model = RaceTrackValueIteration(rt, rc, 0.80, max_iterations, reset_on_crash)
     if "Q" in learning_type:
         LOG.info(f"Performing Q learning with {max_iterations} episodes")
+        # Older stop policy tests used LR 0.25. Reset policy tests used 0.75
         learning_model = QLearning(rt, rc, learning_rate=0.25, max_episodes=max_iterations,
             crash_means_restart=reset_on_crash, discount_rate=0.90)
     if "SARSA" in learning_type:

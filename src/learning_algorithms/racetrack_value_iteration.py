@@ -2,19 +2,25 @@ import logging
 import sys
 import os
 import random
+import time
+import copy
 import numpy as np
 from random import random
+from statistics import mean
 
 from data_utils.race_track import RaceTrack, RaceCar, Action, State
 
 # Logging stuff
+log_level = logging.INFO
 LOG = logging.getLogger(__name__)
-LOG.setLevel(logging.INFO)
+LOG.setLevel(log_level)
 handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.INFO)
+handler.setLevel(log_level)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 LOG.addHandler(handler)
+
+NUM_RACES = 10
 
 # Class that manages the Value Iteration dynamic programming algorithm for filling out the V values of a RaceCar and
 # setting acceleration policy.
@@ -58,8 +64,13 @@ class RaceTrackValueIteration(object):
         if new_state.x_pos != final_x_pos or new_state.y_pos != final_y_pos:
             # You've hit a wall...
             if self.crash_means_restart: # Crash means restart at start position
+                #Crashing into the wall behind the goal is allowed
+                if self.rt.track_matrix[final_y_pos][final_x_pos] == "F":
+                    return State(final_x_pos, final_y_pos, 0, 0)
+                LOG.debug("CRASHED - going back to start")
                 return State(self.rc.start_x, self.rc.start_y, 0, 0)
             else: # Crash means go to last legal position
+                LOG.debug("CRASHED - zeroing velocity")
                 return State(final_x_pos, final_y_pos, 0, 0)
         # There was no collision and new state is legal.
         return new_state
@@ -87,7 +98,7 @@ class RaceTrackValueIteration(object):
 
     # Used to perform the value iteration algorithm.
     def learn_policy(self):
-        check_state = State(-1, 6, 0, 0) # Used for debugging...
+        check_state = State(1, 6, 0, 0) # Used for debugging... It is the start state on the L track...
         for time_state in range(1, self.mi+1): # Do max_iterations number of passes over the state space
             LOG.info(f"Computing state space iteration: {time_state}")
             old_values = self.rc.v.copy() # Copy the current state of V for current set of calculations..
@@ -113,7 +124,12 @@ class RaceTrackValueIteration(object):
                 if state == check_state:
                     LOG.debug(f"{state} V value updated to {best_action_q} from action {action}")
         # Once the policy is learned - print the car's path through the track.
-        self.animate_car_policy()
+        race_durations = []
+
+        for _ in range(NUM_RACES):
+            race_durations.append(self.animate_car_policy()) # Animate car policy
+        LOG.info(f"Race times from {NUM_RACES} attempts: {race_durations}")
+        LOG.info(f"Average race duration: {str(mean(race_durations))}")
 
     # Used to animate the car moving through the track with the current policy..
     def animate_car_policy(self):
@@ -122,38 +138,37 @@ class RaceTrackValueIteration(object):
         x_velocity, y_velocity = 0, 0
         x_pos, y_pos = self.rc.start_x, self.rc.start_y
         state = State(x_pos, y_pos, x_velocity, y_velocity) # Get start state
-        track = self.rt.track_matrix.copy()
-        has_finished = False
+        track = copy.deepcopy(self.rt.track_matrix)
         while True:
             # Only allow 400 steps in an attempt to reach the finish line
             if time_state == max_allowed_steps or state is None:
                 print(f"Unable to reach finish line after {time_state} iterations")
-                return
+                return time_state
             os.system('cls' if os.name == 'nt' else 'clear') # Clear terminal for printing of track
-            if track[state.y_pos][state.x_pos] == "F": # You've reached the finish line
-                print(f"Reached finish line after {time_state} steps")
-                has_finished = True
             track[state.y_pos][state.x_pos] = str(time_state)[-1] # Update the track that a spot has been reached
-            for row in track: # Print track..
-                print(row)
-            if has_finished: # If finish line has been reached, exit
-                return
+            # for row in track: # Print track..
+            #     print(row)
+            if self.rt.track_matrix[state.y_pos][state.x_pos] == "F": # You've reached the finish line
+                print(f"Reached finish line after {time_state} steps")
+                return time_state
             policy_state_action = self.rc.acceleration_policy[state] # Get best action from policy
             # Allow for 20% chance that action fails.
             non_deterministic_factor = random() 
             if non_deterministic_factor <= 0.20:
-                print(f"At time {time_state} ", "from", state, "action policy failed [non-deterministic result]")
-                state = self.calc_action_outcome(
+                next_state = self.calc_action_outcome(
                     state.x_pos, state.y_pos, state.x_velocity, state.y_velocity,
                     0, 0
                 )
+                print(f"At time {time_state} ", "from", state, "action policy failed [non-deterministic result] to state", str(next_state))
             else: # Take action stored from policy...
-                print(f"At time {time_state} ", "from", state, "took", self.rc.acceleration_policy[state])
-                state = self.calc_action_outcome(
+                next_state = self.calc_action_outcome(
                     state.x_pos, state.y_pos, state.x_velocity, state.y_velocity,
                     policy_state_action.x_acc_delta, policy_state_action.y_acc_delta
                 )
+                print(f"At time {time_state} ", "from", state, "took", self.rc.acceleration_policy[state], "to state", str(next_state))
+            state = next_state
             time_state += 1
+        return time_state
 
 # Class that extends ValueIteration implementation to utilize it's RaceCar/RaceTrack management but overwrites it's
 # learn_policy method to implement Q learning algorithm.
@@ -184,20 +199,23 @@ class QLearning(RaceTrackValueIteration):
         reward = -1 # This calculation only happens when not at finish line state so reward is a cost of -1
         action_score = q[prev_state][action]
         # Action at new state is chosen using the one with highest Q score at next state.
+        next_state_action_max_score = max(q[new_state].values())
+        LOG.debug(f"Chose from next state {new_state} action with max score: {next_state_action_max_score}")
         return ( action_score
-                 + (self.lr*(reward + self.dr*max(q[new_state].values()) - action_score))
+                 + (self.lr*(reward + self.dr*next_state_action_max_score - action_score))
         )
 
     # Epsilon greedy selection of action at current state..
     def pick_next_action(self, q, state):
         # Start with high value epsilon and gradually decrease it as more episodes occur...
-        working_epsilon = ((self.me - self.curr_episode) / self.me) * 0.95
+        working_epsilon = (float(self.me - self.curr_episode) / self.me) * 0.95
         rand_float = random() # Returns random number between 0 and 1...
         # with epislon probability, choose a random action...
         if rand_float <= working_epsilon:
-            return np.random.choice(list(q[state]))
+            action = np.random.choice(list(q[state]))
         else: # with 1-epsilon probability, choose the best action...
-            return max(q[state], key=q[state].get)
+            action = max(q[state], key=q[state].get)
+        return action
 
     # Initialize q table/dictionary with random values for each action at each legal state.
     def initialize_q(self):
@@ -210,11 +228,11 @@ class QLearning(RaceTrackValueIteration):
 
     # Implementation of Q learning algorithm.
     def learn_policy(self):
+        check_state = State(1, 6, 0, 0) # Used for debugging... It is the start state on the L track...
         # Initialize all Q(s, a) arbitrarily.
         q = self.initialize_q()
+        self.curr_episode = 0 # updates whenever the race car leaves from the start...
         for episode_iteration in range(self.me): # Do maximum_iterations number of episodes.
-            self.curr_episode = episode_iteration
-            os.system('cls' if os.name == 'nt' else 'clear')
             LOG.info(f"Performing episode iteration: {episode_iteration} / {self.me}")
             # Reset end state Q scores...
             for end_state in self.rt.end_states():
@@ -223,10 +241,22 @@ class QLearning(RaceTrackValueIteration):
                     q[end_state][action] = 0.0
             # Start from RaceCars start position.
             state = State(self.rc.start_x, self.rc.start_y, 0, 0)
+            if state == check_state:
+                value_string = "\n".join([f"{str(key)} - {str(value)}" for key, value in q[state].items()])
+                LOG.debug(
+                    f"On {episode_iteration} episode {state} {self.rt.track_matrix[state.y_pos][state.x_pos]} has Q values...\n {value_string}")
             while True:
-                # If the race car has reached the finish - stop current episode.
-                if self.rt.track_matrix[state.y_pos][state.x_pos] == "F":
-                    break
+                LOG.debug(f"At {state}")
+                if self.rt.track_matrix[state.y_pos][state.x_pos] == "S":
+                    self.curr_episode += 1
+
+                #     print(self.curr_episode)
+                # tc = copy.deepcopy(self.rt.track_matrix)
+                # tc[state.y_pos][state.x_pos] = "X"
+                # for row in tc:
+                #     print(row)
+                # os.system('cls' if os.name == 'nt' else 'clear')
+
                 # Greedy policy to pick best action at state...
                 next_action = self.pick_next_action(q, state)
                 # Calculate the outcome of taking next_action at current state. calc_action_outcome will return None
@@ -243,12 +273,24 @@ class QLearning(RaceTrackValueIteration):
                         state.x_pos, state.y_pos, state.x_velocity, state.y_velocity,
                         next_action.x_acc_delta, next_action.y_acc_delta
                     )
+                LOG.debug(f"Chose {next_action} to get to {new_state}")
                 # Update Q with results of action
-                q[state][next_action] = self.calculate_q_update(q, state, new_state, next_action)
+                q_s_a_update = self.calculate_q_update(q, state, new_state, next_action)
+                LOG.debug(f"Updating Q(S, A) for {state}, {next_action}, to {q_s_a_update}")
+                q[state][next_action] = q_s_a_update
+                # If the race car has reached the finish - stop current episode.
+                if self.rt.track_matrix[new_state.y_pos][new_state.x_pos] == "F":
+                    break
                 # Update state
                 state = new_state
+            os.system('cls' if os.name == 'nt' else 'clear')
         self.populate_car_policy_from_q(q) # Populate car policy from Q
-        self.animate_car_policy() # Animate car policy
+        race_durations = []
+        for _ in range(NUM_RACES):
+            race_durations.append(self.animate_car_policy()) # Animate car policy
+        LOG.info(f"Race times from {NUM_RACES} attempts: {race_durations}")
+        LOG.info(f"Average race duration: {str(mean(race_durations))}")
+
 
 # Class that extends QLearning implementation to utilize it's RaceCar/RaceTrack management in addition to learning
 # protocol
@@ -262,6 +304,7 @@ class SARSA(QLearning):
         reward = -1 # This calculation only happens when not at finish line state so reward is a cost of -1
         action_score = q[prev_state][action]
         next_state_action = self.pick_next_action(q, new_state) # Pick an action at the next state using epsilon greedy
+        LOG.debug(f"Chose from next state {new_state} {next_state_action} with using epsilon greedy choice")
         return ( action_score
                  + (self.lr*(reward + self.dr*q[new_state][next_state_action] - action_score))
         )
